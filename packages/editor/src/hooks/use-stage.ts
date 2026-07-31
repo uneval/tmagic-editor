@@ -52,6 +52,15 @@ export const useStage = (stageOptions: StageOptions) => {
     disabledFlashTip: stageOptions.disabledFlashTip,
   });
 
+  // M2 T2.6:leafer 路径下,自动注册内置 10 个 shape 到 LeaferRender 的 shapeRegistry
+  // iframe 路径下 stage.leaferRender 是 null,这里 no-op
+  // 动态 import @leafer-components,避免在 iframe 路径下也加载 canvas 依赖
+  if (stage.leaferRender?.shapeRegistry) {
+    void import('@leafer-components').then(({ builtinShapes }) => {
+      stage.leaferRender!.shapeRegistry!.registerAll({ ...builtinShapes });
+    });
+  }
+
   watch(
     () => editorService.get('disabledMultiSelect'),
     (disabledMultiSelect) => {

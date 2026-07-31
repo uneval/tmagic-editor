@@ -49,6 +49,26 @@ export { default as pageFragment } from './page-fragment'
 export { default as pageFragmentContainer } from './page-fragment-container'
 export { default as iteratorContainer } from './iterator-container'
 
+/**
+ * editor 启动时一次性注册到 LeaferShapeRegistry 的内置 shape 集合。
+ * 用法:
+ *   import { builtinShapes } from '@leafer-components'
+ *   const registry = new LeaferShapeRegistry()
+ *   registry.registerAll(builtinShapes)
+ */
+export const builtinShapes = {
+  button,
+  text,
+  img,
+  container,
+  overlay,
+  page,
+  qrcode,
+  pageFragment,
+  pageFragmentContainer,
+  iteratorContainer,
+} as const
+
 export {
   parsePx,
   parseShadow,
@@ -66,15 +86,4 @@ export {
 export { buildPlaceholderRect } from './placeholder'
 
 // 业务方 `import * as lc from '@leafer-components'` 时拿到所有
-export default {
-  button,
-  text,
-  img,
-  container,
-  overlay,
-  page,
-  qrcode,
-  pageFragment,
-  pageFragmentContainer,
-  iteratorContainer,
-}
+export default builtinShapes

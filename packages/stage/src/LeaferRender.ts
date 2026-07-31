@@ -56,8 +56,8 @@ export default class LeaferRender extends EventEmitter implements Render {
 
   private zoom = DEFAULT_ZOOM;
 
-  /** 业务方提供的 shape registry */
-  private shapeRegistry: LeaferShapeRegistry;
+  /** 业务方提供的 shape registry(public,允许 editor service 在 mount 后追加注册) */
+  public shapeRegistry: LeaferShapeRegistry;
 
   constructor(config: { zoom?: number; shapeRegistry?: LeaferShapeRegistry }) {
     super();

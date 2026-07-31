@@ -249,6 +249,7 @@ export const initServiceEvents = (
     const stage = await getStage();
     const { renderer } = stage;
     if (!renderer) {
+      // leafer 路径:无 runtime app,直接返回 undefined
       return void 0;
     }
 

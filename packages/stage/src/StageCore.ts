@@ -250,9 +250,12 @@ export default class StageCore extends EventEmitter {
    */
   public async mount(el: HTMLDivElement) {
     this.container = el;
-    const { mask, renderer } = this;
+    const { mask, renderer, leaferRender } = this;
 
+    // M3 修复:leafer 路径下 this.renderer 是 null,需要 mount leaferRender 才能创建 canvas。
+    // 之前这里只写了 `renderer?.mount(el)`,导致 leafer 路径下画布是空的,StageMask 的 mask wrapper 覆盖上去看起来"还是有 iframe"(其实是空 + mask,iframe 是上次残留)。
     await renderer?.mount(el);
+    await leaferRender?.mount(el);
     mask?.mount(el);
 
     this.emit('mounted');

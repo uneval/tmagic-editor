@@ -161,7 +161,12 @@ watchEffect(() => {
   if (stage || !page.value) return;
 
   if (!stageContainerEl.value) return;
-  if (!(props.stageOptions?.runtimeUrl || props.stageOptions?.render) || !root.value) return;
+  // M3 修复:leafer 路径下没有 runtimeUrl 也没有自定义 render,但仍然要能挂载 leafer 画布。
+  // 之前 gate 只接受 runtimeUrl / render,leafer 路径直接被 early return,StageCore 永远不创建,
+  // 表现就是 `.m-editor-stage-container` 是空的(如果上一次是 iframe 模式没干净卸载,会留下残影)。
+  const isLeaferPath = props.stageOptions?.renderer === 'leafer';
+  if (!isLeaferPath && !(props.stageOptions?.runtimeUrl || props.stageOptions?.render)) return;
+  if (!isLeaferPath && !root.value) return;
 
   stage = useStage(props.stageOptions);
 

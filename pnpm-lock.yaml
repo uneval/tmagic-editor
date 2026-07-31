@@ -495,6 +495,9 @@ importers:
       leafer-ui:
         specifier: ^2.0.0
         version: 2.2.7
+      leafer-x-easy-snap:
+        specifier: ^1.11.0
+        version: 1.11.0
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
@@ -5605,6 +5608,9 @@ packages:
 
   leafer-ui@2.2.7:
     resolution: {integrity: sha512-G9PYMImGFlDr2yd6WVjgirQqywb3Z6fRokZYq8m8Bq1cujUfXNCiPojd5Ol2S0NGgGTHCKwIdyTmmV/buHH0XQ==}
+
+  leafer-x-easy-snap@1.11.0:
+    resolution: {integrity: sha512-gR/G+6iVbzCz8MLOf9WjGFF5IEkObDjKMbmBiiHSh4vyQoZsoaukV26ETJcfmtmqKf47Hx4ZOxiyZazSuXMZVw==}
 
   levn@0.4.1:
     resolution: {integrity: sha512-+bT2uH4E5LGE7h/n3evcS/sQlJXCpIp6ym8OWJ5eV6+67Dsql/LaaT7qJBAt2rzfoa/5QBGBhxDix1dMt2kQKQ==}
@@ -12018,6 +12024,8 @@ snapshots:
       '@leafer/core': 2.2.7
       '@leafer/interface': 2.2.7
       '@leafer/partner': 2.2.7
+
+  leafer-x-easy-snap@1.11.0: {}
 
   levn@0.4.1:
     dependencies:

@@ -24,8 +24,8 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
-import LeaferStage from '../../src/LeaferStage';
 import LeaferShapeRegistry from '../../src/LeaferShapeRegistry';
+import LeaferStage from '../../src/LeaferStage';
 
 class FakeNode {
   public children: FakeNode[] = [];
@@ -56,12 +56,14 @@ vi.mock('leafer-ui', () => {
     }
   }
 
+  class MockFrame extends MockNode {}
+
   return {
     Leafer: class extends MockNode {
       public destroy() {}
     },
     Group: MockNode,
-    Frame: MockNode,
+    Frame: MockFrame,
     Rect: MockNode,
   };
 });
@@ -157,14 +159,17 @@ describe('LeaferStage > constructor', () => {
     (r as any).leafer = { add: () => {}, destroy: () => {} };
     (r as any).rootGroup = new FakeNode();
 
-    await r.setRoot({
-      id: 'app',
-      type: 'app',
-      items: [
-        { id: 'index', type: 'page', items: [{ id: 'qr', type: 'qrcode' }] },
-        { id: 'page2', type: 'page', items: [{ id: 'back', type: 'button' }] },
-      ],
-    } as any, 'page2');
+    await r.setRoot(
+      {
+        id: 'app',
+        type: 'app',
+        items: [
+          { id: 'index', type: 'page', items: [{ id: 'qr', type: 'qrcode' }] },
+          { id: 'page2', type: 'page', items: [{ id: 'back', type: 'button' }] },
+        ],
+      } as any,
+      'page2',
+    );
 
     expect((r as any).nodeMap.has('page2')).toBe(true);
     expect((r as any).nodeMap.has('back')).toBe(true);
@@ -172,6 +177,7 @@ describe('LeaferStage > constructor', () => {
     expect((r as any).nodeMap.has('qr')).toBe(true);
     expect((r as any).pageFrames.size).toBe(2);
     expect((r as any).pageFrames.get('page2').editable).toBe(true);
+    expect((r as any).pageFrames.get('page2').constructor.name).toBe('MockFrame');
   });
 
   it('setRoot 事件契约:StageCore 依赖这个事件来清 editorService.stageLoading', async () => {

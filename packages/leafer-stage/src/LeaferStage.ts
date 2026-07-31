@@ -16,52 +16,62 @@
  * limitations under the License.
  */
 
-import { EventEmitter } from 'events'
+/* eslint-disable @typescript-eslint/member-ordering */
 
-import type { IUI } from 'leafer-ui'
+import { EventEmitter } from 'events';
 
-import type { Id, MApp, MNode } from '@tmagic/core'
+import type { Id, MApp, MNode } from '@tmagic/core';
 
-import { DEFAULT_ZOOM } from './const'
-import LeaferShapeRegistry from './LeaferShapeRegistry'
-import type { Point, RemoveData, UpdateData } from './types'
+import DragSessionController from './drag/DragSessionController';
+import DropFeedbackRenderer from './drag/DropFeedbackRenderer';
+import DropTargetResolver from './drag/DropTargetResolver';
+import type { DragCommit } from './drag/types';
+import { DEFAULT_ZOOM } from './const';
+import LeaferShapeRegistry from './LeaferShapeRegistry';
+import type { Point, RemoveData, UpdateData } from './types';
 
-const DEFAULT_PAGE_WIDTH = 375
-const DEFAULT_PAGE_HEIGHT = 667
-const PAGE_GAP = 80
-const PAGE_PADDING = 40
+const DEFAULT_PAGE_WIDTH = 375;
+const DEFAULT_PAGE_HEIGHT = 667;
+const PAGE_GAP = 80;
+const PAGE_PADDING = 40;
+
+interface SnapController {
+  enable(enabled: boolean): void;
+  updateConfig(config: { parentContainer?: unknown }): void;
+}
 
 const parseCssLength = (value: unknown, relativeTo?: number): number | undefined => {
   if (typeof value === 'string' && value.trim().endsWith('%')) {
-    const percent = Number.parseFloat(value)
-    if (Number.isFinite(percent) && relativeTo !== undefined) return (percent / 100) * relativeTo
-    return undefined
+    const percent = Number.parseFloat(value);
+    if (Number.isFinite(percent) && relativeTo !== undefined) return (percent / 100) * relativeTo;
+    return undefined;
   }
-  if (value == null || value === '') return undefined
-  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined
-  if (typeof value !== 'string') return undefined
-  const normalized = value.trim().replace(/(px|pt|rpx)$/i, '')
-  const number = Number(normalized)
-  return Number.isFinite(number) ? number : undefined
-}
+  if (value == null || value === '') return undefined;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.trim().replace(/(px|pt|rpx)$/i, '');
+  const number = Number(normalized);
+  return Number.isFinite(number) ? number : undefined;
+};
 
 const pageVisualProps = (style: Record<string, any> | undefined): Record<string, unknown> => {
-  if (!style) return {}
-  const props: Record<string, unknown> = {}
-  const opacity = typeof style.opacity === 'string' && style.opacity.endsWith('%')
-    ? Number.parseFloat(style.opacity) / 100
-    : Number(style.opacity)
-  if (Number.isFinite(opacity)) props.opacity = Math.max(0, Math.min(1, opacity))
-  const borderWidth = parseCssLength(style.borderWidth)
+  if (!style) return {};
+  const props: Record<string, unknown> = {};
+  const opacity =
+    typeof style.opacity === 'string' && style.opacity.endsWith('%')
+      ? Number.parseFloat(style.opacity) / 100
+      : Number(style.opacity);
+  if (Number.isFinite(opacity)) props.opacity = Math.max(0, Math.min(1, opacity));
+  const borderWidth = parseCssLength(style.borderWidth);
   if (borderWidth !== undefined && borderWidth > 0) {
-    props.strokeWidth = borderWidth
-    props.stroke = style.borderColor || '#000'
+    props.strokeWidth = borderWidth;
+    props.stroke = style.borderColor || '#000';
   } else if (style.borderColor) {
-    props.stroke = style.borderColor
+    props.stroke = style.borderColor;
   }
-  if (style.boxShadow && style.boxShadow !== 'none') props.shadow = style.boxShadow
-  return props
-}
+  if (style.boxShadow && style.boxShadow !== 'none') props.shadow = style.boxShadow;
+  return props;
+};
 
 /**
  * Leafer editor stage:独立于 iframe/runtime stage 的 canvas 编辑器运行时。
@@ -74,47 +84,29 @@ const pageVisualProps = (style: Record<string, any> | undefined): Record<string,
  * 类实例化在方法里做 lazy import,避免 vitest happy-dom 环境跑测试时 canvas 报错。
  */
 export default class LeaferStage extends EventEmitter {
-  public readonly kind = 'leafer' as const
-  public container?: HTMLDivElement
+  public readonly kind = 'leafer' as const;
+  public container?: HTMLDivElement;
   // LeaferStage 不创建 iframe DOM、StageMask 或 ActionManager；这些空接口
   // 让 editor 的通用服务可以安全地持有两种 stage。
-  public renderer: null = null
-  public mask: any = null
-  public actionManager: any = null
+  public renderer = null;
+  public mask: any = null;
+  public actionManager: any = null;
 
   private app: any = null;
   private leafer: import('leafer-ui').Leafer | null = null;
   private editor: any = null;
-  private editorDirtyIds = new Set<Id>();
+  private snap: SnapController | null = null;
+  private rectConstructor: any = null;
   private manualPageIds = new Set<Id>();
-  private readonly flushEditorChanges = () => {
-    if (!this.editorDirtyIds.size) return;
-    const configs = Array.from(this.editorDirtyIds)
-      .map((id) => {
-        const node = this.nodeMap.get(id) as any;
-        if (!node) return null;
-        if (this.pageFrames.has(id)) this.manualPageIds.add(id);
-        const style: Record<string, unknown> = {};
-        if (typeof node.x === 'number') style.left = node.x;
-        if (typeof node.y === 'number') style.top = node.y;
-        if (typeof node.width === 'number') style.width = node.width;
-        if (typeof node.height === 'number') style.height = node.height;
-        if (typeof node.rotation === 'number' && node.rotation !== 0) {
-          style.transform = { rotate: `${node.rotation}deg` };
-        }
-        return { id, style };
-      })
-      .filter((config): config is { id: Id; style: Record<string, unknown> } => Boolean(config));
-    this.editorDirtyIds.clear();
-    this.manualPageIds.clear();
-    if (configs.length) this.emit('edit-end', { configs });
-  };
-
+  private containerNodeIds = new Set<Id>();
   /** MNode.id → leafer UI 节点的映射,用于反查 */
   private nodeMap: Map<Id, unknown> = new Map();
 
   /** MPage.id → page frame,用于多 page 同时渲染和定位 */
   private pageFrames: Map<Id, unknown> = new Map();
+
+  /** 页面自身的排版边界,不能从包含拖动子节点的 Group bounds 反推。 */
+  private pageLayoutBounds: Map<Id, { x: number; y: number; width: number; height: number }> = new Map();
 
   /** root group,所有 page frame 加到这里 */
   private rootGroup: import('leafer-ui').Group | null = null;
@@ -131,6 +123,33 @@ export default class LeaferStage extends EventEmitter {
    */
   private pendingRoot: MApp | null = null;
 
+  private readonly dropTargetResolver = new DropTargetResolver({
+    rootGroup: () => this.rootGroup,
+    pageFrames: () => this.pageFrames,
+    pageBounds: () => this.pageLayoutBounds,
+    containerIds: () => this.containerNodeIds,
+    nodeMap: () => this.nodeMap,
+  });
+  private readonly dropFeedbackRenderer = new DropFeedbackRenderer({
+    rootGroup: () => this.rootGroup,
+    rectConstructor: () => this.rectConstructor,
+  });
+  private readonly dragSession = new DragSessionController({
+    resolveTarget: (point, ids) => this.dropTargetResolver.resolve(point, ids),
+    targetChanged: (target) => this.dropFeedbackRenderer.render(target),
+    commit: (data) => this.commitDrag(data),
+  });
+  private readonly capturePointerPoint = (event: any) => {
+    const point = event?.getInnerPoint?.(this.rootGroup) ?? event?.getInner?.(this.rootGroup);
+    if (point && Number.isFinite(point.x) && Number.isFinite(point.y)) {
+      this.dragSession.updatePointer(point);
+    }
+  };
+
+  private readonly beginDrag = () => this.dragSession.begin();
+  private readonly cancelDrag = () => this.dragSession.cancel();
+  private readonly finishDrag = () => this.dragSession.finish();
+
   constructor(config: { zoom?: number; shapeRegistry?: LeaferShapeRegistry }) {
     super();
     this.zoom = config.zoom ?? DEFAULT_ZOOM;
@@ -146,14 +165,16 @@ export default class LeaferStage extends EventEmitter {
   // -------------------------------------------------------------------------
 
   public async mount(el: HTMLDivElement): Promise<void> {
-    this.container = el
+    this.container = el;
     // Editor 插件必须运行在 App 的 tree / sky 分层结构中。
     // 这里仍然保持 lazy import,避免 vitest/node 环境加载浏览器插件。
     await import('@leafer-in/editor');
     await import('@leafer-in/resize');
     await import('@leafer-in/viewport');
-    const { App, Group } = await import('leafer-ui');
-    this.app = new App({
+    const { Snap: SnapConstructor } = await import('leafer-x-easy-snap');
+    const { App: AppConstructor, Group: GroupConstructor, Rect: RectConstructor } = await import('leafer-ui');
+    this.rectConstructor = RectConstructor;
+    this.app = new AppConstructor({
       view: el,
       fill: '#f5f5f5',
       editor: {},
@@ -163,8 +184,34 @@ export default class LeaferStage extends EventEmitter {
     });
     this.leafer = this.app.tree;
     this.editor = this.app.editor;
+    this.rootGroup = new GroupConstructor({ hitChildren: true });
+    this.leafer!.add(this.rootGroup);
+    // Leafer 没有官方内置的对齐辅助线。使用社区插件提供移动吸附和
+    // 辅助线，且把它限制在当前节点的父容器内，避免页面 A 的子节点吸附到
+    // 页面 B 的内部节点。页面本身则通过 rootGroup 与其它页面对齐。
+    this.snap = new SnapConstructor(this.app, {
+      attachEvents: ['move'],
+      showLine: true,
+      showLinePoints: false,
+      showDistanceLabels: true,
+      showEqualSpacingBoxes: false,
+      snapSize: 5,
+      lineColor: '#5b8ff9',
+      parentContainer: this.rootGroup,
+    });
+    this.snap.enable(true);
+    this.app.on('pointer.move', this.capturePointerPoint);
+    this.app.on('pointer.up', this.capturePointerPoint);
     this.editor?.on('editor.select', (event: { editor?: { list?: any[] } }) => {
-      const ids = (event.editor?.list ?? [])
+      const nodes = event.editor?.list ?? [];
+      this.dragSession.setSelection(
+        nodes
+          .filter((node) => node.id !== undefined && node.id !== null)
+          .map((node) => ({ id: node.id as Id, style: this.readNodeStyle(node) })),
+      );
+      const parentContainer = nodes[0]?.parent ?? this.rootGroup;
+      this.snap?.updateConfig({ parentContainer });
+      const ids = nodes
         .map((node) => node.id)
         .filter((id): id is Id => id !== undefined && id !== null && this.nodeMap.has(id));
       this.emit('select', ids);
@@ -173,15 +220,14 @@ export default class LeaferStage extends EventEmitter {
       this.editor?.on(eventName, (event: { editor?: { list?: any[] }; target?: any }) => {
         const nodes = event.editor?.list ?? (event.target ? [event.target] : []);
         nodes.forEach((node) => {
-          if (node.id !== undefined && node.id !== null) this.editorDirtyIds.add(node.id);
+          if (node.id !== undefined && node.id !== null) this.dragSession.markChanged([node.id]);
         });
       });
     }
-    el.addEventListener('pointerup', this.flushEditorChanges, true);
-    el.addEventListener('mouseup', this.flushEditorChanges, true);
-    this.rootGroup = new Group({ hitChildren: true });
-    this.leafer!.add(this.rootGroup);
-
+    el.addEventListener('pointerdown', this.beginDrag, true);
+    el.addEventListener('pointercancel', this.cancelDrag, true);
+    el.addEventListener('pointerup', this.finishDrag, true);
+    el.addEventListener('mouseup', this.finishDrag, true);
     // 如果 mount 之前 initService 已经推过 DSL,这里补上
     if (this.pendingRoot) {
       const pending = this.pendingRoot;
@@ -191,14 +237,20 @@ export default class LeaferStage extends EventEmitter {
   }
 
   public destroy(): void {
+    this.dragSession.dispose();
+    this.dropFeedbackRenderer.clear();
+    this.snap?.enable(false);
+    this.snap = null;
+    this.rectConstructor = null;
     this.app?.destroy();
     this.leafer?.destroy();
     this.app = null;
     this.editor = null;
-    this.editorDirtyIds.clear();
     if (this.container) {
-      this.container.removeEventListener('pointerup', this.flushEditorChanges, true);
-      this.container.removeEventListener('mouseup', this.flushEditorChanges, true);
+      this.container.removeEventListener('pointerdown', this.beginDrag, true);
+      this.container.removeEventListener('pointercancel', this.cancelDrag, true);
+      this.container.removeEventListener('pointerup', this.finishDrag, true);
+      this.container.removeEventListener('mouseup', this.finishDrag, true);
     }
     this.leafer = null;
     this.rootGroup = null;
@@ -206,6 +258,8 @@ export default class LeaferStage extends EventEmitter {
     this.pendingRoot = null;
     this.nodeMap.clear();
     this.pageFrames.clear();
+    this.pageLayoutBounds.clear();
+    this.containerNodeIds.clear();
     this.removeAllListeners();
   }
 
@@ -228,16 +282,20 @@ export default class LeaferStage extends EventEmitter {
     // 清树前先解除旧 Editor target。否则快速点击/重建期间,旧节点仍可能
     // 通过 editor.select 事件回流到 editorService,形成失效 ID。
     if (this.editor) this.editor.target = null;
+    this.dragSession.cancel();
     this.rootGroup.removeAll();
     this.nodeMap.clear();
     this.pageFrames.clear();
+    this.pageLayoutBounds.clear();
+    this.containerNodeIds.clear();
+    this.snap?.updateConfig({ parentContainer: this.rootGroup });
 
     // 2. 遍历 pages,每个 MPage 一个 Group(背景 Rect + 子节点)
     // 用 Group 而不是 Frame,因为 Frame 在 leafer 2.x 是裁剪容器,
     // 自己的 fill 经常不渲染;改用 Group 装一个背景 Rect(画 page 底色)再装 items。
     // 之前用 Rect,Rect 没有 .add() 装不下 items;
     // 之前用 Frame,Frame fill 不渲染,page 背景变白。
-    const { Group, Rect } = await import('leafer-ui');
+    const { Frame: FrameConstructor, Rect: RectConstructor } = await import('leafer-ui');
     const pageItems = (root.items ?? []).filter((item) => {
       if (item.type !== 'page' && item.type !== 'page-fragment') return false;
       return true;
@@ -248,7 +306,8 @@ export default class LeaferStage extends EventEmitter {
     // 已经被扩展成整个多页世界。
     const viewport = this.container?.parentElement?.parentElement;
     const viewportWidth = viewport?.clientWidth || this.container?.clientWidth || DEFAULT_PAGE_WIDTH + PAGE_PADDING * 2;
-    const viewportHeight = viewport?.clientHeight || this.container?.clientHeight || DEFAULT_PAGE_HEIGHT + PAGE_PADDING * 2;
+    const viewportHeight =
+      viewport?.clientHeight || this.container?.clientHeight || DEFAULT_PAGE_HEIGHT + PAGE_PADDING * 2;
     const pageLayouts = pageItems.map((page) => ({
       page,
       width: parseCssLength(page.style?.width, DEFAULT_PAGE_WIDTH) ?? DEFAULT_PAGE_WIDTH,
@@ -263,16 +322,15 @@ export default class LeaferStage extends EventEmitter {
       const autoY = Math.max(PAGE_PADDING, (viewportHeight - h) / 2);
       const sourceX = parseCssLength(pageStyle?.left);
       const sourceY = parseCssLength(pageStyle?.top);
-      const pageX = this.manualPageIds.has(page.id) && sourceX !== undefined
-        ? sourceX
-        : sourceX && sourceX !== 0 ? sourceX : autoX;
-      const pageY = this.manualPageIds.has(page.id) && sourceY !== undefined
-        ? sourceY
-        : sourceY && sourceY !== 0 ? sourceY : autoY;
+      const pageX =
+        this.manualPageIds.has(page.id) && sourceX !== undefined ? sourceX : sourceX && sourceX !== 0 ? sourceX : autoX;
+      const pageY =
+        this.manualPageIds.has(page.id) && sourceY !== undefined ? sourceY : sourceY && sourceY !== 0 ? sourceY : autoY;
       const fill = pageStyle?.backgroundImage || pageStyle?.backgroundColor || '#fff';
 
-      // Group 自身不可见(没 fill),Rect 画 page 底色
-      const pageGroup = new Group({
+      // Frame 提供页面固定宽高; overflow=show 保证拖动中的子节点不会被页面裁剪。
+      // Group 的宽高随子节点变化,不能作为页面的编辑边界。
+      const pageGroup = new FrameConstructor({
         x: pageX,
         y: pageY,
         width: w,
@@ -281,15 +339,17 @@ export default class LeaferStage extends EventEmitter {
         editable: true,
         hitChildren: true,
         ...pageVisualProps(pageStyle),
+        overflow: 'show',
       });
       // 显式写入属性,兼容不同 Leafer 版本的构造器代理。
       (pageGroup as any).id = page.id;
       (pageGroup as any).editable = true;
       (pageGroup as any).hitChildren = true;
-      const bg = new Rect({ x: 0, y: 0, width: w, height: h, fill, ...pageVisualProps(pageStyle) });
+      const bg = new RectConstructor({ x: 0, y: 0, width: w, height: h, fill, ...pageVisualProps(pageStyle) });
       (pageGroup as { add: (n: unknown) => void }).add(bg);
       this.pageFrames.set(page.id, pageGroup);
       this.nodeMap.set(page.id, pageGroup);
+      this.pageLayoutBounds.set(page.id, { x: pageX, y: pageY, width: w, height: h });
       this.rootGroup.add(pageGroup);
 
       // 递归渲染 page items(子节点 x/y 是 page-relative,直接 add 即可)
@@ -330,7 +390,7 @@ export default class LeaferStage extends EventEmitter {
     // page 后原地更新它,不能重新套用自动排版或替换 Editor 当前 target。
     if (this.pageFrames.has(data.config.id)) {
       const page = node as any;
-      const style = data.config.style;
+      const { style } = data.config;
       const left = parseCssLength(style?.left);
       const top = parseCssLength(style?.top);
       const width = parseCssLength(style?.width);
@@ -350,7 +410,7 @@ export default class LeaferStage extends EventEmitter {
 
     // 重新跑 shape,生成新节点,替换旧的
     if (!this.shapeRegistry.get?.(data.config.type ?? '')) return;
-    const parent = (node as { parent?: { add: (n: unknown) => void; remove: (n: unknown) => void } }).parent;
+    const { parent } = node as { parent?: { add: (n: unknown) => void; remove: (n: unknown) => void } };
     const result = this.createNode(data.config, this.getNodeSize(parent));
     if (parent) {
       parent.remove(node);
@@ -365,7 +425,7 @@ export default class LeaferStage extends EventEmitter {
     const node = this.nodeMap.get(data.id);
     if (!node) return;
 
-    const parent = (node as { parent?: { remove: (n: unknown) => void } }).parent;
+    const { parent } = node as { parent?: { remove: (n: unknown) => void } };
     parent?.remove(node);
     this.deleteMappedTree(node);
   }
@@ -401,7 +461,7 @@ export default class LeaferStage extends EventEmitter {
   public setAlwaysMultiSelect(_value: boolean): void {}
   public reloadIframe(_url: string): void {}
   public async getElementImage(): Promise<never> {
-    throw new Error('LeaferStage does not render DOM elements as images')
+    throw new Error('LeaferStage does not render DOM elements as images');
   }
 
   // -------------------------------------------------------------------------
@@ -421,12 +481,60 @@ export default class LeaferStage extends EventEmitter {
     return [];
   }
 
+  private commitDrag({ sessionId, ids, target, snapshots }: DragCommit): void {
+    const snapshotById = new Map(snapshots.map((snapshot) => [`${snapshot.id}`, snapshot]));
+    const configs = ids
+      .map((id) => {
+        const node = this.nodeMap.get(id) as any;
+        if (!node) return null;
+        if (this.pageFrames.has(id)) this.manualPageIds.add(id);
+        const style: Record<string, unknown> = target
+          ? this.readNodeStyle(node)
+          : { ...(snapshotById.get(`${id}`)?.style ?? this.readNodeStyle(node)) };
+        if (target && !this.pageFrames.has(id)) {
+          const targetNode = this.nodeMap.get(target.id) as any;
+          const currentParentId = node.parent?.id;
+          if (targetNode && `${currentParentId}` !== `${target.id}`) {
+            const relativeBounds = node.getLayoutBounds?.('box', targetNode);
+            if (relativeBounds) {
+              style.left = relativeBounds.x;
+              style.top = relativeBounds.y;
+            }
+            return { id, style, parentId: target.id };
+          }
+        }
+        return { id, style };
+      })
+      .filter((config): config is { id: Id; style: Record<string, unknown>; parentId?: Id } => Boolean(config));
+    this.manualPageIds.clear();
+    if (configs.length) {
+      const parentId = configs.find((config) => config.parentId)?.parentId;
+      this.emit('edit-end', { sessionId, configs, parentId });
+    }
+  }
+
+  private readNodeStyle(node: any): Record<string, unknown> {
+    const style: Record<string, unknown> = {};
+    if (typeof node.x === 'number') style.left = node.x;
+    if (typeof node.y === 'number') style.top = node.y;
+    if (typeof node.width === 'number') style.width = node.width;
+    if (typeof node.height === 'number') style.height = node.height;
+    if (typeof node.rotation === 'number' && node.rotation !== 0) {
+      style.transform = { rotate: `${node.rotation}deg` };
+    }
+    return style;
+  }
+
   // -------------------------------------------------------------------------
   // 内部工具
   // -------------------------------------------------------------------------
 
   /** 递归渲染子节点到 page frame 或其它 Leafer 容器。 */
-  private async renderChildren(parent: unknown, children: MNode[], parentSize?: { width?: number; height?: number }): Promise<void> {
+  private async renderChildren(
+    parent: unknown,
+    children: MNode[],
+    parentSize?: { width?: number; height?: number },
+  ): Promise<void> {
     for (const node of this.createNodes(children, parentSize)) {
       (parent as { add: (n: unknown) => void }).add(node);
     }
@@ -456,6 +564,7 @@ export default class LeaferStage extends EventEmitter {
       node.hitChildren = true;
     }
     this.nodeMap.set(config.id, node);
+    if (Array.isArray(config.items)) this.containerNodeIds.add(config.id);
 
     if (typeof result === 'object' && 'node' in result) {
       const children = (result as { children?: MNode[] }).children ?? [];

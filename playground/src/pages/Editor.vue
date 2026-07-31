@@ -77,13 +77,20 @@ import { useEditorMenu } from './composables/use-editor-menu';
 import { useEditorMoveableOptions } from './composables/use-editor-moveable-options';
 import { useEditorRes } from './composables/use-editor-res';
 
-const { VITE_RUNTIME_PATH } = import.meta.env;
+const { MODE, VITE_RUNTIME_PATH } = import.meta.env;
+
+// 预览必须始终指向 runtime 的多入口页面。开发服务热更新或环境文件未重新加载时
+// VITE_RUNTIME_PATH 可能暂时为空,不能让 URL 退化为 `/undefined/page/index.html`,
+// 否则 Vite 会把它 fallback 到 playground 的编辑器入口。
+const runtimePath =
+  VITE_RUNTIME_PATH ||
+  (MODE === 'react' ? '/tmagic-editor/playground/runtime/react' : '/tmagic-editor/playground/runtime/vue');
 
 uiService.set('propsPanelSize', 'default');
 
 const datasourceList: DatasourceTypeOption[] = [];
 // 不再用 runtimeUrl —— playground 走 leafer canvas 路径
-void VITE_RUNTIME_PATH;
+void runtimePath;
 
 const { propsValues, propsConfigs, eventMethodList, datasourceConfigs, datasourceValues, datasourceEventMethodList } =
   useEditorRes();
@@ -114,7 +121,8 @@ const stageRect = ref({
 // 避免编辑器已切到 page2、预览仍沿用首次计算出的 index。
 const previewPageId = ref<MNode['id']>();
 const previewUrl = computed(
-  () => `${VITE_RUNTIME_PATH}/page/index.html?localPreview=1&page=${previewPageId.value ?? editor.value?.editorService.get('page')?.id}`,
+  () =>
+    `${runtimePath}/page/index.html?localPreview=1&page=${previewPageId.value ?? editor.value?.editorService.get('page')?.id}`,
 );
 
 const { moveableOptions } = useEditorMoveableOptions(editor);

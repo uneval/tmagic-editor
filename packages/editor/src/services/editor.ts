@@ -314,17 +314,15 @@ class Editor extends BaseService {
     // store 更新 + LeaferStage 内部 selection 已经够用
     const stage = this.get('stage');
     if (node?.id && stage?.renderer?.runtime) {
-      stage.renderer.runtime
-        .getApp?.()
-        ?.page?.emit(
-          'editor:select',
-          {
-            node,
-            page,
-            parent,
-          },
-          getNodePath(node.id, this.get('root')?.items),
-        );
+      stage.renderer.runtime.getApp?.()?.page?.emit(
+        'editor:select',
+        {
+          node,
+          page,
+          parent,
+        },
+        getNodePath(node.id, this.get('root')?.items),
+      );
     }
 
     this.emit('select', node);
@@ -1195,7 +1193,15 @@ class Editor extends BaseService {
 
     let newConfigs: MNode[] = [];
 
-    const moveNodes = moves.map(({ node }) => node);
+    const configById = new Map(configs.map((config) => [`${config.id}`, config]));
+    const moveNodes = moves.map(({ node }) => {
+      const config = configById.get(`${node.id}`);
+      if (!config?.style) return node;
+      return {
+        ...cloneDeep(toRaw(node)),
+        style: { ...node.style, ...config.style },
+      };
+    });
     await this.remove(moveNodes, { doNotPushHistory: true, doNotSelect, doNotSwitchPage: true });
 
     newConfigs = (await this.add(moveNodes, target, {

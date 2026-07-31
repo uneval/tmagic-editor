@@ -1,8 +1,8 @@
 import { computed, watch } from 'vue';
 
 import type { Id, MNode } from '@tmagic/core';
-import StageCore, { GuidesType, RemoveEventData, SortEventData, UpdateEventData } from '@tmagic/stage';
 import LeaferStage, { type LeaferEditData } from '@tmagic/leafer-stage';
+import StageCore, { GuidesType, RemoveEventData, SortEventData, UpdateEventData } from '@tmagic/stage';
 import { getIdFromEl } from '@tmagic/utils';
 
 import editorService from '@editor/services/editor';
@@ -19,43 +19,46 @@ const uiSelectMode = computed(() => uiService.get('uiSelectMode'));
 const getGuideLineKey = (key: string) => `${key}_${root.value?.id}_${page.value?.id}`;
 
 export const useStage = (stageOptions: StageOptions) => {
-  const leaferStage = stageOptions.renderer === 'leafer' ? new LeaferStage({ zoom: stageOptions.zoom ?? zoom.value }) : null;
-  const stage = (leaferStage ?? new StageCore({
-    render: stageOptions.render,
-    runtimeUrl: stageOptions.runtimeUrl,
-    zoom: stageOptions.zoom ?? zoom.value,
-    autoScrollIntoView: stageOptions.autoScrollIntoView,
-    isContainer: stageOptions.isContainer,
-    canDropIn: stageOptions.canDropIn,
-    containerHighlightClassName: stageOptions.containerHighlightClassName,
-    containerHighlightDuration: stageOptions.containerHighlightDuration,
-    containerHighlightType: stageOptions.containerHighlightType,
-    containerHighlightAddOnly: stageOptions.containerHighlightAddOnly,
-    disabledDragStart: stageOptions.disabledDragStart,
-    renderType: stageOptions.renderType,
-    canSelect: (el, event, stop) => {
-      if (!stageOptions.canSelect) return true;
+  const leaferStage =
+    stageOptions.renderer === 'leafer' ? new LeaferStage({ zoom: stageOptions.zoom ?? zoom.value }) : null;
+  const stage = (leaferStage ??
+    new StageCore({
+      render: stageOptions.render,
+      runtimeUrl: stageOptions.runtimeUrl,
+      zoom: stageOptions.zoom ?? zoom.value,
+      autoScrollIntoView: stageOptions.autoScrollIntoView,
+      isContainer: stageOptions.isContainer,
+      canDropIn: stageOptions.canDropIn,
+      containerHighlightClassName: stageOptions.containerHighlightClassName,
+      containerHighlightDuration: stageOptions.containerHighlightDuration,
+      containerHighlightType: stageOptions.containerHighlightType,
+      containerHighlightAddOnly: stageOptions.containerHighlightAddOnly,
+      disabledDragStart: stageOptions.disabledDragStart,
+      renderType: stageOptions.renderType,
+      canSelect: (el, event, stop) => {
+        if (!stageOptions.canSelect) return true;
 
-      const elCanSelect = stageOptions.canSelect?.(el);
-      // 在组件联动过程中不能再往下选择，返回并触发 ui-select
-      if (uiSelectMode.value && elCanSelect && event.type === 'mousedown') {
-        document.dispatchEvent(new CustomEvent(UI_SELECT_MODE_EVENT_NAME, { detail: el }));
-        return stop();
-      }
+        const elCanSelect = stageOptions.canSelect?.(el);
+        // 在组件联动过程中不能再往下选择，返回并触发 ui-select
+        if (uiSelectMode.value && elCanSelect && event.type === 'mousedown') {
+          document.dispatchEvent(new CustomEvent(UI_SELECT_MODE_EVENT_NAME, { detail: el }));
+          return stop();
+        }
 
-      return elCanSelect;
-    },
-    moveableOptions: stageOptions.moveableOptions,
-    updateDragEl: stageOptions.updateDragEl,
-    guidesOptions: stageOptions.guidesOptions,
-    disabledMultiSelect: stageOptions.disabledMultiSelect,
-    alwaysMultiSelect: stageOptions.alwaysMultiSelect,
-    disabledRule: stageOptions.disabledRule,
-    disabledFlashTip: stageOptions.disabledFlashTip,
-  })) as StageCore;
+        return elCanSelect;
+      },
+      moveableOptions: stageOptions.moveableOptions,
+      updateDragEl: stageOptions.updateDragEl,
+      guidesOptions: stageOptions.guidesOptions,
+      disabledMultiSelect: stageOptions.disabledMultiSelect,
+      alwaysMultiSelect: stageOptions.alwaysMultiSelect,
+      disabledRule: stageOptions.disabledRule,
+      disabledFlashTip: stageOptions.disabledFlashTip,
+    })) as StageCore;
 
   // Leafer shape 只在独立 LeaferStage 路径按需加载。注册完成后重新提交当前
   // root，覆盖 mount / setRoot / dynamic import 三者之间可能出现的竞态。
+  let latestEditSessionId = 0;
   if (leaferStage) {
     void import('@leafer-components').then(({ builtinShapes }) => {
       leaferStage.shapeRegistry.registerAll({ ...builtinShapes });
@@ -77,17 +80,34 @@ export const useStage = (stageOptions: StageOptions) => {
         void editorService.multiSelect(ids);
       }
     });
-    leaferStage.on('edit-end', async ({ configs }: LeaferEditData) => {
-      const changeRecordList = configs.map(({ style }) => buildChangeRecords(style, 'style'));
-      await editorService.update(configs as MNode[], {
-        changeRecordList,
-        historySource: 'stage',
-      });
-      // editorService.update 会异步驱动 stage.update 重建 shape，重建完成后
-      // 重新把原生 Editor target 指向新节点，避免松开鼠标后控制框消失。
-      setTimeout(() => {
-        void leaferStage.select(configs.map(({ id }) => id));
-      });
+    leaferStage.on('edit-end', ({ sessionId, configs }: LeaferEditData) => {
+      void (async () => {
+        latestEditSessionId = sessionId;
+        const changeRecordList = configs.map(({ style }) => buildChangeRecords(style, 'style'));
+        const targetParentId = configs.find((config) => config.parentId)?.parentId;
+        if (targetParentId !== undefined) {
+          // Leafer 只负责画布中的连续移动，DSL 父子关系由编辑器服务统一维护。
+          // stage 已将最终坐标转换为目标容器的局部坐标，moveToContainer 会把这些
+          // style 一并带入新父容器，保证跨页面/进出容器后视觉位置不跳变。
+          await editorService.moveToContainer(
+            configs.map(({ id, style }) => ({ id, style })),
+            targetParentId,
+            { historySource: 'stage' },
+          );
+        } else {
+          await editorService.update(configs as MNode[], {
+            changeRecordList,
+            historySource: 'stage',
+          });
+        }
+        if (sessionId !== latestEditSessionId) return;
+        // editorService.update 会异步驱动 stage.update 重建 shape，重建完成后
+        // 重新把原生 Editor target 指向新节点，避免松开鼠标后控制框消失。
+        setTimeout(() => {
+          if (sessionId !== latestEditSessionId) return;
+          void leaferStage.select(configs.map(({ id }) => id));
+        });
+      })();
     });
     return stage;
   }

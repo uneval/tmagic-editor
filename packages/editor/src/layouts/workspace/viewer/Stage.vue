@@ -8,7 +8,7 @@
     :wrap-width="stageContainerRect?.width"
     :wrap-height="stageContainerRect?.height"
     :zoom="zoom"
-    :infinite="stageOptions.renderer === 'leafer'"
+    :infinite="stageOptions?.renderer === 'leafer'"
     :correction-scroll-size="{
       width: 60,
       height: 50,
@@ -18,7 +18,7 @@
     <div
       class="m-editor-stage-container"
       ref="stageContainer"
-      :style="stageOptions.renderer === 'leafer' ? undefined : `transform: scale(${zoom});`"
+      :style="stageOptions?.renderer === 'leafer' ? undefined : `transform: scale(${zoom});`"
       @contextmenu="contextmenuHandler"
       @drop="dropHandler"
       @dragover="dragoverHandler"

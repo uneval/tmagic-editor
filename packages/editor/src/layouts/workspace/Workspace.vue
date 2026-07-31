@@ -4,8 +4,8 @@
 
     <slot name="stage">
       <MagicStage
-        v-if="page && (stageOptions?.render || stageOptions?.runtimeUrl || stageOptions?.renderer === 'leafer')"
-        :stage-options="stageOptions"
+        v-if="page && isStageMountable(stageOptions)"
+        :stage-options="stageOptions!"
         :disabled-stage-overlay="disabledStageOverlay"
         :stage-content-menu="stageContentMenu"
         :custom-content-menu="customContentMenu"
@@ -22,6 +22,7 @@
 import { computed, inject } from 'vue';
 
 import { useServices } from '@editor/hooks/use-services';
+import { isStageMountable } from '@editor/utils/stage';
 import type { CustomContentMenuFunction, MenuButton, MenuComponent, StageOptions, WorkspaceSlots } from '@editor/type';
 
 import MagicStage from './viewer/Stage.vue';

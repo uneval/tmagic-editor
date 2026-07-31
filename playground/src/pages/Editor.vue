@@ -1,23 +1,11 @@
 <template>
   <div class="editor-app">
-    <div class="renderer-bar">
-      <span class="renderer-bar__label">画布渲染器:</span>
-      <el-radio-group v-model="renderer" size="small" @change="rendererChangeHandler">
-        <el-radio-button value="iframe">iframe（Vue/React runtime）</el-radio-button>
-        <el-radio-button value="leafer">leafer（canvas）</el-radio-button>
-      </el-radio-group>
-      <span class="renderer-bar__hint">
-        切换需刷新页面生效；iframe 模式用 runtimeUrl 拉远端页面，leafer 模式在编辑器内置用
-        <code>@leafer-components</code> shape 直接画。
-      </span>
-    </div>
-
     <TMagicEditor
       v-model="value"
       ref="editor"
       :menu="menu"
-      :renderer="renderer"
-      :runtime-url="renderer === 'iframe' ? runtimeUrl : undefined"
+      :renderer="'leafer'"
+      :runtime-url="undefined"
       :props-configs="propsConfigs"
       :props-values="propsValues"
       :event-method-list="eventMethodList"
@@ -94,25 +82,8 @@ const { VITE_RUNTIME_PATH } = import.meta.env;
 uiService.set('propsPanelSize', 'default');
 
 const datasourceList: DatasourceTypeOption[] = [];
-const runtimeUrl = `${VITE_RUNTIME_PATH}/playground/index.html`;
-
-// M3 playground:画布渲染器(StageCore.renderer)选择。
-// 'iframe' = 默认,沿用 runtimeUrl 远端页面; 'leafer' = leafer-ui canvas,
-// 由编辑器在 useStage 里自动 import @leafer-components 注册的 10 个内置 shape。
-// 选完写 localStorage,刷新页面后生效(StageCore 构造时锁定,运行时不切换)。
-const RENDERER_STORAGE_KEY = 'tmagic-playground-renderer';
-const isRenderer = (v: unknown): v is 'iframe' | 'leafer' => v === 'iframe' || v === 'leafer';
-const renderer = ref<'iframe' | 'leafer'>(
-  isRenderer(localStorage.getItem(RENDERER_STORAGE_KEY))
-    ? (localStorage.getItem(RENDERER_STORAGE_KEY) as 'iframe' | 'leafer')
-    : 'iframe',
-);
-const rendererChangeHandler = (val: 'iframe' | 'leafer') => {
-  localStorage.setItem(RENDERER_STORAGE_KEY, val);
-  // StageCore 在 useStage 启动时已固定走哪条路径,这里简单 reload 一次让 Editor 重建
-  // 不要尝试在 runtime 切换,会触发大量 setRoot 状态错位
-  window.location.reload();
-};
+// 不再用 runtimeUrl —— playground 走 leafer canvas 路径
+void VITE_RUNTIME_PATH;
 
 const { propsValues, propsConfigs, eventMethodList, datasourceConfigs, datasourceValues, datasourceEventMethodList } =
   useEditorRes();
@@ -264,44 +235,10 @@ html {
 .editor-app {
   width: 100%;
   height: 100%;
-  display: flex;
-  flex-direction: column;
-
-  .renderer-bar {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 6px 12px;
-    border-bottom: 1px solid var(--el-border-color-lighter, #ebeef5);
-    background: #fafafa;
-    flex-shrink: 0;
-
-    &__label {
-      font-size: 13px;
-      color: #303133;
-      font-weight: 500;
-    }
-
-    &__hint {
-      font-size: 12px;
-      color: #909399;
-
-      code {
-        background: #fff;
-        border: 1px solid var(--el-border-color-lighter, #ebeef5);
-        border-radius: 3px;
-        padding: 0 4px;
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-        font-size: 11px;
-        color: #d63384;
-      }
-    }
-  }
 
   .m-editor {
     flex: 1;
     height: 100%;
-    min-height: 0;
   }
 
   .el-overlay-dialog {

@@ -60,6 +60,7 @@ import type { CustomContentMenuFunction, MenuButton, MenuComponent, StageOptions
 import { DragType, Layout } from '@editor/type';
 import { getEditorConfig } from '@editor/utils/config';
 import { KeyBindingContainerKey } from '@editor/utils/keybinding-config';
+import { isStageMountable } from '@editor/utils/stage';
 
 import NodeListMenu from './NodeListMenu.vue';
 import StageOverlay from './StageOverlay.vue';
@@ -161,12 +162,10 @@ watchEffect(() => {
   if (stage || !page.value) return;
 
   if (!stageContainerEl.value) return;
-  // M3 修复:leafer 路径下没有 runtimeUrl 也没有自定义 render,但仍然要能挂载 leafer 画布。
-  // 之前 gate 只接受 runtimeUrl / render,leafer 路径直接被 early return,StageCore 永远不创建,
-  // 表现就是 `.m-editor-stage-container` 是空的(如果上一次是 iframe 模式没干净卸载,会留下残影)。
-  const isLeaferPath = props.stageOptions?.renderer === 'leafer';
-  if (!isLeaferPath && !(props.stageOptions?.runtimeUrl || props.stageOptions?.render)) return;
-  if (!isLeaferPath && !root.value) return;
+  // 单一来源:isStageMountable 把"leafer 路径直接过 + iframe 路径要 runtimeUrl/render"封装成一个函数,
+  // 避免在多处重复写 if-else。注意 root 是 iframe 路径才需要的(dep 收集等),leafer 路径不强求。
+  if (!isStageMountable(props.stageOptions)) return;
+  if (props.stageOptions?.renderer !== 'leafer' && !root.value) return;
 
   stage = useStage(props.stageOptions);
 

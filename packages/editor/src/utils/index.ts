@@ -32,4 +32,5 @@ export * from './history';
 export * from './const';
 export * from './type-match-rules';
 export * from './event';
+export * from './stage';
 export { default as loadMonaco } from './monaco-editor';

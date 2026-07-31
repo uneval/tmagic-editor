@@ -49,6 +49,7 @@
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
     "@leafer-components": "workspace:*",
+    "@tmagic/leafer-stage": "workspace:*",
     "@tmagic/design": "workspace:*",
     "@tmagic/form": "workspace:*",
     "@tmagic/stage": "workspace:*",

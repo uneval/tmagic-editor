@@ -22,6 +22,7 @@ export * from '@tmagic/table';
 export { default as tablePlugin } from '@tmagic/table';
 export * from '@tmagic/stage';
 export { default as StageCore } from '@tmagic/stage';
+export { default as LeaferStage, LeaferShapeRegistry } from '@tmagic/leafer-stage';
 export * from '@tmagic/design';
 export { default as designPlugin } from '@tmagic/design';
 export * from '@tmagic/utils';

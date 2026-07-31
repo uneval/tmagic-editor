@@ -21,6 +21,7 @@ import { Frame } from 'leafer-ui'
 import type { MContainer } from '@tmagic/schema'
 
 import {
+  commonVisualProps,
   normalizeColor,
   parsePx,
   type ShapeFn,
@@ -40,6 +41,7 @@ const shape: ShapeFn = (config, _ctx): ShapeWithChildren => {
     height: parsePx(c.style?.height),
     fill: normalizeColor(c.style?.backgroundColor),
     cornerRadius: parsePx(c.style?.borderRadius),
+    ...commonVisualProps(c.style),
   })
   return { node, children: c.items ?? [] }
 }

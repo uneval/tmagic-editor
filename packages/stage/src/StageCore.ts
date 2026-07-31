@@ -26,7 +26,6 @@ import { getIdFromEl } from '@tmagic/core';
 
 import ActionManager from './ActionManager';
 import { DEFAULT_ZOOM, PAGE_CLASS } from './const';
-import LeaferRender from './LeaferRender';
 import StageFlashHighlight from './StageFlashHighlight';
 import StageMask from './StageMask';
 import StageRender from './StageRender';
@@ -61,12 +60,6 @@ export default class StageCore extends EventEmitter {
   /** 非点击画布选中组件时，是否对选中区域做高亮闪烁提示，默认开启 */
   private disabledFlashTip: boolean;
 
-  /**
-   * leafer 路径下的渲染器(独立属性,避免改动 StageCore 现有 iframe 路径)。
-   * 与 renderer 互斥:`config.renderer === 'leafer'` 时 leaferRender 有值,renderer 为 null。
-   */
-  public leaferRender: LeaferRender | null = null;
-
   constructor(config: StageCoreConfig) {
     super();
 
@@ -74,17 +67,7 @@ export default class StageCore extends EventEmitter {
     this.customizedRender = config.render;
     this.disabledFlashTip = config.disabledFlashTip ?? false;
 
-    // 根据 config.renderer 选 StageRender (iframe) 或 LeaferRender (canvas)
-    // 默认 'iframe' 保持向后兼容,M2 之后业务方显式传 'leafer' 切新
-    const rendererKind = config.renderer ?? 'iframe';
-    if (rendererKind === 'leafer') {
-      // leafer 路径:LeaferRender 走独立属性,StageCore 不创建 StageRender
-      this.leaferRender = new LeaferRender({
-        zoom: config.zoom,
-        shapeRegistry: config.shapeRegistry,
-      });
-    } else {
-      this.renderer = new StageRender({
+    this.renderer = new StageRender({
         runtimeUrl: config.runtimeUrl,
         zoom: config.zoom,
         renderType: config.renderType,
@@ -94,8 +77,7 @@ export default class StageCore extends EventEmitter {
           }
           return null;
         },
-      });
-    }
+    });
     this.mask = new StageMask({
       guidesOptions: config.guidesOptions,
       disabledRule: config.disabledRule,
@@ -211,6 +193,7 @@ export default class StageCore extends EventEmitter {
     const { config } = data;
 
     await this.renderer?.update(data);
+
     // 通过setTimeout等画布中组件完成渲染更新
     setTimeout(() => {
       const el = this.renderer?.getTargetElement(`${config.id}`);
@@ -248,15 +231,13 @@ export default class StageCore extends EventEmitter {
    * 挂载Dom节点
    * @param el 将stage挂载到该Dom节点上
    *
-   * iframe 路径下 `this.renderer` 是 StageRender 实例、`this.leaferRender` 是 null。
-   * leafer 路径下反过来。两者互斥,这里用 `?.` 做 dispatch 而不是 if-else 选一个。
+   * StageCore 只管理 iframe/runtime stage。
    */
   public async mount(el: HTMLDivElement) {
     this.container = el;
-    const { mask, renderer, leaferRender } = this;
+    const { mask, renderer } = this;
 
     await renderer?.mount(el);
-    await leaferRender?.mount(el);
     mask?.mount(el);
 
     this.emit('mounted');
@@ -423,15 +404,6 @@ export default class StageCore extends EventEmitter {
       this.observePageResize(el);
 
       this.emit('page-el-update', el);
-    });
-    // leafer 路径没有 iframe runtime,但 use-stage 那边在监听 stage.on('page-el-update')
-    // 来把 editorService.stageLoading 清掉(消除"Runtime 加载中"那个 el-loading)。
-    // LeaferRender 在 setRoot 完成后会 emit 'set-root',这里转发成 page-el-update,
-    // 跟 iframe 路径保持同一条事件链,use-stage 不用知道走的哪条路径。
-    // el 用 this.container 占位 —— use-stage 那边只听事件,不读 el;
-    // 未来 mask.observe 也想观察 leafer canvas 的话,可以从 this.container 起步(P0 不做)。
-    this.leaferRender?.on('set-root', () => {
-      this.emit('page-el-update', this.container as HTMLDivElement);
     });
   }
 

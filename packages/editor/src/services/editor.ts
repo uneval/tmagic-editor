@@ -311,7 +311,7 @@ class Editor extends BaseService {
     this.set('parent', parent);
 
     // M2.5:leafer 路径下没有 runtime page 实例,跳过 runtime 'editor:select' 事件通知
-    // store 更新 + leaferRender 内部 selection 已经够用
+    // store 更新 + LeaferStage 内部 selection 已经够用
     const stage = this.get('stage');
     if (node?.id && stage?.renderer?.runtime) {
       stage.renderer.runtime

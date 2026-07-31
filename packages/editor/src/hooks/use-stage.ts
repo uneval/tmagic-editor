@@ -1,7 +1,8 @@
 import { computed, watch } from 'vue';
 
-import type { MNode } from '@tmagic/core';
+import type { Id, MNode } from '@tmagic/core';
 import StageCore, { GuidesType, RemoveEventData, SortEventData, UpdateEventData } from '@tmagic/stage';
+import LeaferStage, { type LeaferEditData } from '@tmagic/leafer-stage';
 import { getIdFromEl } from '@tmagic/utils';
 
 import editorService from '@editor/services/editor';
@@ -18,8 +19,8 @@ const uiSelectMode = computed(() => uiService.get('uiSelectMode'));
 const getGuideLineKey = (key: string) => `${key}_${root.value?.id}_${page.value?.id}`;
 
 export const useStage = (stageOptions: StageOptions) => {
-  const stage = new StageCore({
-    renderer: stageOptions.renderer,
+  const leaferStage = stageOptions.renderer === 'leafer' ? new LeaferStage({ zoom: stageOptions.zoom ?? zoom.value }) : null;
+  const stage = (leaferStage ?? new StageCore({
     render: stageOptions.render,
     runtimeUrl: stageOptions.runtimeUrl,
     zoom: stageOptions.zoom ?? zoom.value,
@@ -51,15 +52,44 @@ export const useStage = (stageOptions: StageOptions) => {
     alwaysMultiSelect: stageOptions.alwaysMultiSelect,
     disabledRule: stageOptions.disabledRule,
     disabledFlashTip: stageOptions.disabledFlashTip,
-  });
+  })) as StageCore;
 
-  // M2 T2.6:leafer 路径下,自动注册内置 10 个 shape 到 LeaferRender 的 shapeRegistry
-  // iframe 路径下 stage.leaferRender 是 null,这里 no-op
-  // 动态 import @leafer-components,避免在 iframe 路径下也加载 canvas 依赖
-  if (stage.leaferRender?.shapeRegistry) {
+  // Leafer shape 只在独立 LeaferStage 路径按需加载。注册完成后重新提交当前
+  // root，覆盖 mount / setRoot / dynamic import 三者之间可能出现的竞态。
+  if (leaferStage) {
     void import('@leafer-components').then(({ builtinShapes }) => {
-      stage.leaferRender!.shapeRegistry!.registerAll({ ...builtinShapes });
+      leaferStage.shapeRegistry.registerAll({ ...builtinShapes });
+      const currentRoot = editorService.get('root');
+      if (currentRoot) {
+        void leaferStage.setRoot(currentRoot as any, editorService.get('page')?.id);
+      }
     });
+  }
+
+  if (leaferStage) {
+    leaferStage.on('page-el-update', () => {
+      editorService.set('stageLoading', false);
+    });
+    leaferStage.on('select', (ids: Id[]) => {
+      if (ids.length === 1) {
+        void editorService.select(ids[0]);
+      } else if (ids.length > 1) {
+        void editorService.multiSelect(ids);
+      }
+    });
+    leaferStage.on('edit-end', async ({ configs }: LeaferEditData) => {
+      const changeRecordList = configs.map(({ style }) => buildChangeRecords(style, 'style'));
+      await editorService.update(configs as MNode[], {
+        changeRecordList,
+        historySource: 'stage',
+      });
+      // editorService.update 会异步驱动 stage.update 重建 shape，重建完成后
+      // 重新把原生 Editor target 指向新节点，避免松开鼠标后控制框消失。
+      setTimeout(() => {
+        void leaferStage.select(configs.map(({ id }) => id));
+      });
+    });
+    return stage;
   }
 
   watch(

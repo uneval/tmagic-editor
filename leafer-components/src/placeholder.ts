@@ -30,6 +30,8 @@ export const buildPlaceholderRect = (config: MComponent): Rect => {
   const w = parsePx(config.style?.width) ?? 100
   const h = parsePx(config.style?.height) ?? 100
   return new Rect({
+    x: parsePx(config.style?.left) ?? 0,
+    y: parsePx(config.style?.top) ?? 0,
     width: w,
     height: h,
     fill: '#f5f5f5',

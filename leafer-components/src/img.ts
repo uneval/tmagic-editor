@@ -20,16 +20,18 @@ import { Image } from 'leafer-ui'
 
 import type { MComponent } from '@tmagic/schema'
 
-import { parsePx, type ShapeFn } from './utils'
+import { commonVisualProps, parsePx, type ShapeFn } from './utils'
 
 const shape: ShapeFn = (config) => {
-  const c = config as MComponent & { url?: string }
+  const c = config as MComponent & { src?: string; url?: string }
   return new Image({
-    url: c.url ?? '',
+    // Runtime 用 src 渲染图片,url 只是点击跳转地址。
+    url: c.src ?? c.url ?? '',
     x: parsePx(c.style?.left) ?? 0,
     y: parsePx(c.style?.top) ?? 0,
     width: parsePx(c.style?.width),
     height: parsePx(c.style?.height),
+    ...commonVisualProps(c.style),
   })
 }
 

@@ -22,6 +22,7 @@ import type { MComponent } from '@tmagic/schema'
 
 import {
   normalizeColor,
+  commonVisualProps,
   parseFontWeight,
   parsePx,
   type ShapeFn,
@@ -49,18 +50,22 @@ const shape: ShapeFn = (config) => {
       height: h,
       fill: normalizeColor(c.style?.backgroundColor) ?? '#409EFF',
       cornerRadius: parsePx(c.style?.borderRadius) ?? 4,
+      ...commonVisualProps(c.style),
     }),
   )
 
   group.add(
     new Text({
       text: c.text ?? '',
+      width: w,
+      height: h,
       fill: normalizeColor(c.style?.color) ?? '#fff',
       fontSize: parsePx(c.style?.fontSize) ?? 14,
       fontWeight: parseFontWeight(c.style?.fontWeight),
       fontFamily: c.style?.fontFamily,
       textAlign: 'center',
       verticalAlign: 'middle',
+      ...commonVisualProps(c.style),
     }),
   )
 

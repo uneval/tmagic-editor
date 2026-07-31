@@ -50,7 +50,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef, toRaw } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, toRaw, watch } from 'vue';
 import { debounce } from 'lodash-es';
 
 import type { MApp, MContainer, MNode } from '@tmagic/core';
@@ -109,8 +109,12 @@ const stageRect = ref({
   height: 817,
 });
 
+// editorService.state.page 是 reactive 的，但通过 service.get() 读取不会被
+// 这个 playground 组件的 computed 自动收集。预览打开瞬间显式快照当前页面，
+// 避免编辑器已切到 page2、预览仍沿用首次计算出的 index。
+const previewPageId = ref<MNode['id']>();
 const previewUrl = computed(
-  () => `${VITE_RUNTIME_PATH}/page/index.html?localPreview=1&page=${editor.value?.editorService.get('page')?.id}`,
+  () => `${VITE_RUNTIME_PATH}/page/index.html?localPreview=1&page=${previewPageId.value ?? editor.value?.editorService.get('page')?.id}`,
 );
 
 const { moveableOptions } = useEditorMoveableOptions(editor);
@@ -128,6 +132,12 @@ const themeChangeHandler = (value: string) => {
 };
 
 const { menu, deviceGroup, iframe, previewVisible } = useEditorMenu(value, save, themeChangeHandler);
+
+watch(previewVisible, (visible) => {
+  if (visible) {
+    previewPageId.value = editor.value?.editorService.get('page')?.id;
+  }
+});
 
 editorService.usePlugin({
   beforeDoAdd: (config: MNode, parent: MContainer) => {

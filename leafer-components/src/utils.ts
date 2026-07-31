@@ -260,6 +260,54 @@ export const normalizeColor = (v: unknown): string | undefined => {
 }
 
 // ---------------------------------------------------------------------------
+// 通用视觉属性
+// ---------------------------------------------------------------------------
+
+type StyleValue = Record<string, unknown>
+
+const styleValue = (style: unknown): StyleValue =>
+  style && typeof style === 'object' ? (style as StyleValue) : {}
+
+const parseOpacity = (value: unknown): number | undefined => {
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.max(0, Math.min(1, value))
+  if (typeof value !== 'string') return undefined
+  const text = value.trim()
+  if (text.endsWith('%')) {
+    const percent = Number.parseFloat(text)
+    return Number.isFinite(percent) ? Math.max(0, Math.min(1, percent / 100)) : undefined
+  }
+  const opacity = Number(text)
+  return Number.isFinite(opacity) ? Math.max(0, Math.min(1, opacity)) : undefined
+}
+
+/**
+ * 将 runtime 也会作用到元素上的公共 CSS 视觉属性转换成 Leafer 属性。
+ * 这里不处理布局属性(left/top/width/height),布局必须由各 shape 显式解析。
+ */
+export const commonVisualProps = (rawStyle: unknown): Record<string, unknown> => {
+  const style = styleValue(rawStyle)
+  const props: Record<string, unknown> = {}
+  const opacity = parseOpacity(style.opacity)
+  if (opacity !== undefined) props.opacity = opacity
+
+  const backgroundImage = normalizeColor(style.backgroundImage)
+  if (backgroundImage && backgroundImage !== 'none') props.fill = backgroundImage
+
+  const borderWidth = parsePx(style.borderWidth)
+  const borderColor = normalizeColor(style.borderColor)
+  if (borderWidth !== undefined && borderWidth > 0) {
+    props.strokeWidth = borderWidth
+    props.stroke = borderColor ?? '#000'
+  } else if (borderColor) {
+    props.stroke = borderColor
+  }
+
+  const shadow = normalizeColor(style.boxShadow)
+  if (shadow && shadow !== 'none') props.shadow = shadow
+  return props
+}
+
+// ---------------------------------------------------------------------------
 // 占位 Rect(供简单 shape 复用)
 // ---------------------------------------------------------------------------
 

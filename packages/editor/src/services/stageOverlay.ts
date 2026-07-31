@@ -94,7 +94,7 @@ class StageOverlay extends BaseService {
     this.set('wrapHeight', scrollHeight);
   }
 
-  public createStage(stageOptions: StageOptions = {}) {
+  public async createStage(stageOptions: StageOptions = {}) {
     return useStage({
       ...stageOptions,
       runtimeUrl: '',

@@ -57,8 +57,8 @@ watch(zoom, (zoom) => {
   stage.setZoom(zoom);
 });
 
-watch(stageOverlayEl, (stageOverlay) => {
-  const subStage = stageOverlayService.createStage(stageOptions);
+watch(stageOverlayEl, async (stageOverlay) => {
+  const subStage = await stageOverlayService.createStage(stageOptions);
   stageOverlayService.set('stage', subStage);
 
   if (stageOverlay && subStage) {

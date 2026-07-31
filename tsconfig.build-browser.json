@@ -12,6 +12,7 @@
     "packages/form-schema/src",
     "packages/schema/src",
     "packages/stage/src",
+    "packages/leafer-stage/src",
     "packages/utils/src",
     "packages/element-plus-adapter/src",
     "packages/ui/src",

@@ -22,11 +22,8 @@ export * from 'moveable';
 export type { GuidesOptions } from '@scena/guides';
 
 export { default as StageRender } from './StageRender';
-export { default as LeaferRender } from './LeaferRender';
 export { default as StageMask } from './StageMask';
 export { default as StageDragResize } from './StageDragResize';
-export { default as LeaferShapeRegistry } from './LeaferShapeRegistry';
-export type { ShapeFn, ShapeContext, ShapeWithChildren } from './LeaferShapeRegistry';
 export * from './types';
 export * from './const';
 export * from './util';

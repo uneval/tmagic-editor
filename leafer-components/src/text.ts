@@ -21,6 +21,7 @@ import { Text } from 'leafer-ui'
 import type { MComponent } from '@tmagic/schema'
 
 import {
+  commonVisualProps,
   normalizeColor,
   parseFontWeight,
   parsePx,
@@ -43,6 +44,7 @@ const shape: ShapeFn = (config) => {
     fontStyle: c.style?.fontStyle,
     lineHeight: parsePx(c.style?.lineHeight),
     letterSpacing: parsePx(c.style?.letterSpacing),
+    ...commonVisualProps(c.style),
   })
 }
 

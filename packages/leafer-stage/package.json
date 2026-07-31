@@ -1,0 +1,39 @@
+{
+  "version": "1.8.0-beta.20",
+  "name": "@tmagic/leafer-stage",
+  "type": "module",
+  "sideEffects": false,
+  "main": "src/index.ts",
+  "module": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "require": "./src/index.ts"
+    },
+    "./*": "./*"
+  },
+  "files": ["dist", "types", "src"],
+  "license": "Apache-2.0",
+  "engines": { "node": ">=18" },
+  "repository": {
+    "directory": "packages/leafer-stage",
+    "type": "git",
+    "url": "https://github.com/Tencent/tmagic-editor.git"
+  },
+  "dependencies": {
+    "@leafer-in/editor": "^2.2.7",
+    "@leafer-in/resize": "^2.2.7",
+    "@leafer-in/viewport": "^2.2.7",
+    "events": "^3.3.0",
+    "leafer-ui": "^2.0.0"
+  },
+  "peerDependencies": {
+    "@tmagic/core": "workspace:*",
+    "typescript": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "typescript": { "optional": true }
+  }
+}

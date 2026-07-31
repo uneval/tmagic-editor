@@ -20,7 +20,7 @@ import { Frame } from 'leafer-ui'
 
 import type { MPage } from '@tmagic/schema'
 
-import { parsePx, type ShapeFn, type ShapeWithChildren } from './utils'
+import { commonVisualProps, parsePx, type ShapeFn, type ShapeWithChildren } from './utils'
 
 /**
  * page = 根 Frame,持有 items。
@@ -34,6 +34,7 @@ const shape: ShapeFn = (config, _ctx): ShapeWithChildren => {
     width: parsePx(c.style?.width),
     height: parsePx(c.style?.height),
     fill: c.style?.backgroundColor as string | undefined,
+    ...commonVisualProps(c.style),
   })
   return { node, children: c.items ?? [] }
 }

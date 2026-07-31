@@ -66,7 +66,7 @@ export interface EditorProps {
    *
    * iframe 路径下:runtimeUrl 必须有值。
    * leafer 路径下:runtimeUrl 忽略;业务方需确保 useStage 的 editor 在 mount 前已
-   * 通过 `stage.leaferRender.shapeRegistry` 注册好 shape(框架已在 useStage 里自动
+   * 通过 `LeaferStage.shapeRegistry` 注册好 shape(框架已在 useStage 里自动
    * 注册内置 10 个;业务自定义的 shape 由业务方自行 import + registerAll)。
    */
   renderer?: 'iframe' | 'leafer';

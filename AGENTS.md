@@ -16,6 +16,9 @@ TMagic Editor 是魔方平台的可视化编辑器核心库，提供拖拽式组
 关键目录：
 
 - `packages/` — 核心编辑器包
+- `packages/leafer-stage/` — 独立的 Leafer 编辑器画布阶段，负责节点构建、页面排版、选择与编辑
+- `leafer-components/` — Leafer 图形节点及内置组件适配
+- `packages/stage/` — iframe/runtime DOM 阶段，不负责 Leafer 画布渲染
 - `runtime/` — Vue/React Runtime 实现
 - `vue-components/` — Vue 组件封装
 - `react-components/` — React 组件封装
@@ -23,6 +26,25 @@ TMagic Editor 是魔方平台的可视化编辑器核心库，提供拖拽式组
 - `docs/` — VitePress 文档
 - `scripts/` — 构建和发布脚本
 - `eslint-config/` — 共享 ESLint 配置
+
+## 渲染架构
+
+- iframe 路径由 `packages/stage` 的 StageCore、StageRender 和 runtime 负责，继续用于 DOM 组件渲染。
+- Leafer 路径由 `@tmagic/leafer-stage` 独立负责；`StageCore` 不创建或驱动 Leafer 实例，避免两套渲染职责交叉。
+- `.m-editor-stage` 是固定的可视窗口，不限制画布世界的尺寸；Leafer 的 design viewport 负责无限画布中的平移和缩放。
+- 多页面的横向排版只提供初始位置和间距。页面及其子节点之后仍可被选中、拖动和修改，自动排版不得覆盖用户的后续位置调整。
+- DSL/文档模型是内容和样式的事实来源；画布平移、缩放等视口状态属于编辑器运行时状态，不应写回组件样式。
+
+## TypeScript 配置
+
+- `playground/tsconfig.json` 必须显式设置 `compilerOptions.rootDir` 为 `..`。playground 的路径别名会直接引用 workspace package source，TypeScript 6 会据此推导仓库根目录为 common source directory。
+- `packages/leafer-stage` 必须纳入 `tsconfig.build-browser.json`，以便独立画布包参与浏览器构建和类型检查。
+
+## 验证与本地缓存
+
+- 常用类型检查：`node_modules/.bin/tsc -p tsconfig.check.json --noEmit --pretty false`、`node_modules/.bin/tsc -p tsconfig.build-browser.json --noEmit --pretty false`、`node_modules/.bin/tsc -p playground/tsconfig.json --noEmit --pretty false`。
+- 执行 `pnpm lint` 或 `pnpm lint-fix` 后必须检查变更范围；格式化工具可能触及不相关文件，提交前应使用 `git diff --check` 和 `git status` 复核。
+- `.pnpm-store/` 是 pnpm 的本地内容寻址缓存，已加入 `.gitignore`，不得提交到仓库。
 
 ## 开发约定
 
@@ -49,7 +71,7 @@ TMagic Editor 是魔方平台的可视化编辑器核心库，提供拖拽式组
 
 ## 当前状态
 
-**当前里程碑：** {待人工填写}
+**当前里程碑：** Leafer 编辑器阶段迁移与无限画布基础能力已完成；当前重点是交互稳定性、页面多选/拖动和 TypeScript 6 配置收敛。
 
 ## 深入阅读
 

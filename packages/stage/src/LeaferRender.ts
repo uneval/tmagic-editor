@@ -23,7 +23,7 @@ import type { IUI } from 'leafer-ui'
 import type { Id, MApp, MNode } from '@tmagic/core'
 
 import { DEFAULT_ZOOM } from './const'
-import type { LeaferShapeRegistry } from './LeaferShapeRegistry'
+import LeaferShapeRegistry from './LeaferShapeRegistry'
 import type { Point, RemoveData, Render, RenderEvents, UpdateData } from './types'
 
 /**
@@ -62,8 +62,11 @@ export default class LeaferRender extends EventEmitter implements Render {
   constructor(config: { zoom?: number; shapeRegistry?: LeaferShapeRegistry }) {
     super();
     this.zoom = config.zoom ?? DEFAULT_ZOOM;
-    // P0 允许 shapeRegistry 缺失(add/update 时会变成 no-op),等 editor service 在 init 时注册
-    this.shapeRegistry = (config.shapeRegistry as LeaferShapeRegistry) ?? ({} as LeaferShapeRegistry);
+    // 永远要有一个真正的 LeaferShapeRegistry 实例,业务方 useStage 之后会调
+    // `stage.leaferRender.shapeRegistry.registerAll(...)` 注册 shape。
+    // 之前 fallback `{} as LeaferShapeRegistry` 是 TS-only 骗 typecheck,运行时是空对象,
+    // 调到 registerAll 直接报 "is not a function"。
+    this.shapeRegistry = config.shapeRegistry ?? new LeaferShapeRegistry();
   }
 
   // -------------------------------------------------------------------------

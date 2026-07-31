@@ -3,8 +3,6 @@
     class="m-editor-stage"
     ref="stageWrap"
     tabindex="-1"
-    v-loading="stageLoading"
-    element-loading-text="Runtime 加载中..."
     :width="stageRect?.width"
     :height="stageRect?.height"
     :wrap-width="stageContainerRect?.width"
@@ -89,7 +87,13 @@ let runtime: Runtime | null = null;
 
 const { editorService, uiService, keybindingService, stageOverlayService } = useServices();
 
+// stageLoading 状态保留在 editorService 里(其他地方还在 set,业务可能也读),
+// 只是 Stage.vue 不再 bind 到 v-loading 上 —— leafer 路径下没有 "Runtime 加载" 这个语义,
+// 之前在 leafer 路径下转圈是因为 page-el-update 只从 iframe 路径 emit,
+// 强迫两条路径共享同一个 el-loading 视觉本来就是设计歪的。
+// 这里直接把 el-loading 摘掉,状态还在,以后真要做 "leafer canvas 初始加载态" 再说。
 const stageLoading = computed(() => editorService.get('stageLoading'));
+void stageLoading;
 
 const stageWrapRef = useTemplateRef<InstanceType<typeof ScrollViewer>>('stageWrap');
 const stageContainerEl = useTemplateRef<HTMLDivElement>('stageContainer');

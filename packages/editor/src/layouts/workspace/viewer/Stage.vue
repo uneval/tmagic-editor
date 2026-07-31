@@ -8,6 +8,7 @@
     :wrap-width="stageContainerRect?.width"
     :wrap-height="stageContainerRect?.height"
     :zoom="zoom"
+    :infinite="stageOptions.renderer === 'leafer'"
     :correction-scroll-size="{
       width: 60,
       height: 50,
@@ -17,7 +18,7 @@
     <div
       class="m-editor-stage-container"
       ref="stageContainer"
-      :style="`transform: scale(${zoom});`"
+      :style="stageOptions.renderer === 'leafer' ? undefined : `transform: scale(${zoom});`"
       @contextmenu="contextmenuHandler"
       @drop="dropHandler"
       @dragover="dragoverHandler"
@@ -93,7 +94,7 @@ const { editorService, uiService, keybindingService, stageOverlayService } = use
 // 强迫两条路径共享同一个 el-loading 视觉本来就是设计歪的。
 // 这里直接把 el-loading 摘掉,状态还在,以后真要做 "leafer canvas 初始加载态" 再说。
 const stageLoading = computed(() => editorService.get('stageLoading'));
-void stageLoading;
+void stageLoading.value;
 
 const stageWrapRef = useTemplateRef<InstanceType<typeof ScrollViewer>>('stageWrap');
 const stageContainerEl = useTemplateRef<HTMLDivElement>('stageContainer');

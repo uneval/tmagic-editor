@@ -48,6 +48,8 @@ const props = withDefaults(
     wrapWidth?: number;
     wrapHeight?: number;
     zoom?: number;
+    /** Use the host as a fixed viewport; world navigation is owned by Leafer. */
+    infinite?: boolean;
     correctionScrollSize?: {
       width: number;
       height: number;
@@ -59,6 +61,7 @@ const props = withDefaults(
     wrapWidth: 0,
     wrapHeight: 0,
     zoom: 1,
+    infinite: false,
     correctionScrollSize: () => ({
       width: 0,
       height: 0,
@@ -70,20 +73,21 @@ const containerEl = useTemplateRef<HTMLDivElement>('container');
 const el = useTemplateRef<HTMLDivElement>('target');
 const style = computed(
   () => `
-        width: ${isNumber(`${props.width}`) ? `${props.width}px` : props.width};
-        height: ${isNumber(`${props.height}`) ? `${props.height}px` : props.height};
+        width: ${props.infinite ? '100%' : isNumber(`${props.width}`) ? `${props.width}px` : props.width};
+        height: ${props.infinite ? '100%' : isNumber(`${props.height}`) ? `${props.height}px` : props.height};
         position: absolute;
-        margin-top: 30px;
+        margin-top: ${props.infinite ? '0' : '30px'};
       `,
 );
 
 const scrollWidth = ref(0);
 const scrollHeight = ref(0);
 
-let scrollViewer: ScrollViewer;
+let scrollViewer: ScrollViewer | undefined;
 
 onMounted(() => {
   if (!containerEl.value || !el.value) return;
+  if (props.infinite) return;
   scrollViewer = new ScrollViewer({
     container: containerEl.value,
     target: el.value,
@@ -100,27 +104,27 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  scrollViewer.destroy();
+  scrollViewer?.destroy();
 });
 
 watch(
   () => props.zoom,
   () => {
-    scrollViewer.setZoom(props.zoom);
+    scrollViewer?.setZoom(props.zoom);
   },
 );
 
 const vOffset = ref(0);
 const vScrollHandler = (delta: number) => {
   vOffset.value += delta;
-  scrollViewer.scrollTo({
+  scrollViewer?.scrollTo({
     top: vOffset.value,
   });
 };
 const hOffset = ref(0);
 const hScrollHandler = (delta: number) => {
   hOffset.value += delta;
-  scrollViewer.scrollTo({
+  scrollViewer?.scrollTo({
     left: hOffset.value,
   });
 };

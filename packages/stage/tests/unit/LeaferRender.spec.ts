@@ -22,7 +22,7 @@
 // 而 leafer-ui 在 import 时会探测,跑 node 环境最稳。
 // 这里只测构造器逻辑(纯 JS,不实例化 Leafer),不涉及画布。
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import LeaferRender from '../../src/LeaferRender';
 import LeaferShapeRegistry from '../../src/LeaferShapeRegistry';
@@ -62,5 +62,30 @@ describe('LeaferRender > constructor', () => {
   it('kind 标记为 leafer', () => {
     const r = new LeaferRender({});
     expect(r.kind).toBe('leafer');
+  });
+
+  it('setRoot 事件契约:StageCore 依赖这个事件来清 editorService.stageLoading', () => {
+    // P0 简化:不真正 mount leafer(避免 canvas 依赖),只验证事件契约
+    // - 未 mount 时 setRoot no-op,不 emit
+    // - mount 后 setRoot 必须 emit 'set-root' 让 StageCore 转发成 page-el-update
+    const r = new LeaferRender({});
+    const setRootSpy = vi.fn();
+    r.on('set-root', setRootSpy);
+
+    // 没 mount 直接 setRoot → 应该 no-op,不 emit
+    void r.setRoot({ id: '1', type: 'app', items: [] } as any, 'p1');
+    expect(setRootSpy).not.toHaveBeenCalled();
+
+    // 模拟 mount 后:setRoot 仍依赖 leafer 引用,这里手动 set 一个 stub 让它能跑完 emit
+    (r as any).leafer = {
+      add: () => {},
+      destroy: () => {},
+    };
+    (r as any).rootGroup = {
+      removeAll: () => {},
+      add: () => {},
+    };
+    void r.setRoot({ id: '1', type: 'app', items: [] } as any, 'p1');
+    expect(setRootSpy).toHaveBeenCalledTimes(1);
   });
 });

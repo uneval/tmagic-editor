@@ -424,6 +424,15 @@ export default class StageCore extends EventEmitter {
 
       this.emit('page-el-update', el);
     });
+    // leafer 路径没有 iframe runtime,但 use-stage 那边在监听 stage.on('page-el-update')
+    // 来把 editorService.stageLoading 清掉(消除"Runtime 加载中"那个 el-loading)。
+    // LeaferRender 在 setRoot 完成后会 emit 'set-root',这里转发成 page-el-update,
+    // 跟 iframe 路径保持同一条事件链,use-stage 不用知道走的哪条路径。
+    // el 用 this.container 占位 —— use-stage 那边只听事件,不读 el;
+    // 未来 mask.observe 也想观察 leafer canvas 的话,可以从 this.container 起步(P0 不做)。
+    this.leaferRender?.on('set-root', () => {
+      this.emit('page-el-update', this.container as HTMLDivElement);
+    });
   }
 
   private initMaskEvent(): void {

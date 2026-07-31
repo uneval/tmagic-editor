@@ -4,7 +4,7 @@
 
     <slot name="stage">
       <MagicStage
-        v-if="page && (stageOptions?.render || stageOptions?.runtimeUrl)"
+        v-if="page && (stageOptions?.render || stageOptions?.runtimeUrl || stageOptions?.renderer === 'leafer')"
         :stage-options="stageOptions"
         :disabled-stage-overlay="disabledStageOverlay"
         :stage-content-menu="stageContentMenu"

@@ -408,6 +408,25 @@ export const initServiceEvents = (
   const updateStageDsl = async (value: MApp | null) => {
     const stage = await getStage();
 
+    // M3 大头:leafer 路径下不走 iframe runtime,直接 push 到 leaferRender
+    if (stage.leaferRender) {
+      const page = editorService.get('page');
+      const node = editorService.get('node');
+      const dsl = value ? cloneDeep(toRaw(value)) : null;
+      // P0 简化:全量 setRoot,等 M4 阶段再做增量 diff
+      await stage.leaferRender.setRoot(dsl as MApp, page?.id);
+
+      setTimeout(() => {
+        node && stage?.select(toRaw(node.id));
+      });
+
+      if (dsl) {
+        depService.clearIdleTasks();
+        await (typeof Worker === 'undefined' ? collectIdle(dsl.items, true) : depService.collectByWorker(dsl.items));
+      }
+      return;
+    }
+
     const runtime = await stage.renderer?.getRuntime();
     const app = await getTMagicApp();
 

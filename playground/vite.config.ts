@@ -84,6 +84,7 @@ export default defineConfig({
       { find: /^@tmagic\/form-schema/, replacement: path.join(__dirname, '../packages/form-schema/src/index.ts') },
       { find: /^@tmagic\/schema/, replacement: path.join(__dirname, '../packages/schema/src/index.ts') },
       { find: /^@tmagic\/form/, replacement: path.join(__dirname, '../packages/form/src/index.ts') },
+      { find: /^@leafer-components/, replacement: path.join(__dirname, '../leafer-components/src/index.ts') },
       {
         find: /^@tmagic\/tmagic-form-runtime/,
         replacement: path.join(__dirname, '../runtime/tmagic-form/src/index.ts'),

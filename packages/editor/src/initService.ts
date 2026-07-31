@@ -422,7 +422,7 @@ export const initServiceEvents = (
 
       if (dsl) {
         depService.clearIdleTasks();
-        await (typeof Worker === 'undefined' ? collectIdle(dsl.items, true) : depService.collectByWorker(dsl.items));
+        await (typeof Worker === 'undefined' ? collectIdle(dsl.items, true) : depService.collectByWorker(dsl));
       }
       return;
     }

@@ -59,6 +59,17 @@ export interface EditorProps {
   runtimeUrl?: string;
   /** 是用iframe渲染还是直接渲染 */
   renderType?: RenderType;
+  /**
+   * editor 端画布渲染器选择(M2 leafer-components 引入):
+   * - 'iframe':默认,沿用 iframe + Vue/React runtime,保持向后兼容
+   * - 'leafer':用 leafer-ui canvas 直渲染,配合 @leafer-components 注册的内置 shape
+   *
+   * iframe 路径下:runtimeUrl 必须有值。
+   * leafer 路径下:runtimeUrl 忽略;业务方需确保 useStage 的 editor 在 mount 前已
+   * 通过 `stage.leaferRender.shapeRegistry` 注册好 shape(框架已在 useStage 里自动
+   * 注册内置 10 个;业务自定义的 shape 由业务方自行 import + registerAll)。
+   */
+  renderer?: 'iframe' | 'leafer';
   /** 选中时是否自动滚动到可视区域 */
   autoScrollIntoView?: boolean;
   /** 组件的属性配置表单的dsl */
@@ -160,6 +171,7 @@ export interface EditorProps {
 
 export const defaultEditorProps = {
   renderType: RenderType.IFRAME,
+  renderer: 'iframe' as const,
   disabledMultiSelect: false,
   alwaysMultiSelect: false,
   disabledPageFragment: false,

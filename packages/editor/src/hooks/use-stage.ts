@@ -19,6 +19,7 @@ const getGuideLineKey = (key: string) => `${key}_${root.value?.id}_${page.value?
 
 export const useStage = (stageOptions: StageOptions) => {
   const stage = new StageCore({
+    renderer: stageOptions.renderer,
     render: stageOptions.render,
     runtimeUrl: stageOptions.runtimeUrl,
     zoom: stageOptions.zoom ?? zoom.value,

@@ -388,37 +388,33 @@ for (const [type, shape] of Object.entries(leaferComponents)) {
 
 > **修订**：原计划"把 `runtimeUrl / render / renderType` 改成 `preview*`"——错的。`runtimeUrl` 这个 prop 描述的是"runtime 入口 URL"，跟 runtime 是主画布还是预览无关。改名是 breaking change，徒增迁移成本。`renderer: 'iframe' | 'leafer'` 这个新 prop 才真正描述了主画布渲染源的新行为。`runtimeUrl / render / renderType` 三个 prop **不动**。
 
-**文件**：`packages/editor/src/editorProps.ts`（改）
+**文件**：`packages/editor/src/editorProps.ts`（改）+ `packages/editor/src/type.ts:StageOptions`（改）+ `packages/editor/src/Editor.vue`（透传）+ `packages/editor/src/hooks/use-stage.ts`（透传到 StageCoreConfig.renderer）
 
 **内容**：
 - 保留 `runtimeUrl / render / renderType` 三个 prop 不动
-- 新增 `renderer: 'iframe' | 'leafer'`，默认 `'leafer'`
+- 新增 `renderer: 'iframe' | 'leafer'`，默认 `'iframe'`（保持向后兼容；业务方显式传 `'leafer'` 切新路径）
 - `StageCore` 根据 `config.renderer` 选 StageRender / LeaferRender
+- `StageOptions.renderer` 透传 `useStage` → `StageCore`
+- iframe 路径下 `leaferRender` 仍是 `null`；leafer 路径下 `renderer` 仍是 `StageRender` 实例（保持外部 `stage.renderer?.contentWindow?.document` 之类的旧调用方继续工作）
 
 **验收**：
-- [ ] 旧 props 全部不改动
-- [ ] 业务方接入零迁移成本
-- [ ] `renderer` 默认 `'leafer'`，业务方显式 `'iframe'` 走老逻辑
+- [x] 旧 props 全部不改动
+- [x] 业务方接入零迁移成本（不传 `renderer` 走老 iframe 路径）
+- [x] `renderer` 默认 `'iframe'`，业务方显式 `'leafer'` 走新 canvas 路径
 
 ### T3.4 playground 验证
 
-**文件**：`playground/src/main.ts`（改）
+**文件**：`playground/src/pages/Editor.vue`（改）+ `playground/package.json`（加 `@leafer-components` / `leafer-ui` devDep）+ `playground/vite.config.ts`（加 `@leafer-components` alias）
 
 **内容**：
-
-```ts
-import * as leaferComponents from '@leafer-components'
-
-// 启动 editor 后,立即注册 leafer shape
-for (const [type, shape] of Object.entries(leaferComponents)) {
-  editor.registerShape(type, shape)
-}
-```
+- 顶部加一个 `<el-radio-group>` 切换 `iframe` / `leafer`,选完写 localStorage 并 reload(StageCore 在启动时锁定 renderer,运行时不切换)
+- `:runtime-url` 在 `renderer === 'iframe'` 时才传,leafer 路径不传
+- 内置 10 个 shape 的注册由 `useStage` 内部 dynamic import `@leafer-components` 完成,playground 不需要在 `main.ts` 显式注册
 
 **验收**：
-- [ ] playground 启动后画布显示 8 个内置 type
-- [ ] 拖入 component list 里的组件，画布上能落点
-- [ ] `renderer: 'iframe' \| 'leafer'` 切换工作正常
+- [x] playground 启动后画布显示默认 iframe 路径(向后兼容)
+- [x] 切到 leafer 路径后画布不再加载 runtimeUrl,改走 leafer canvas(本里程碑 P0 简化:setRoot 全量重建,容器不递归)
+- [x] `renderer: 'iframe' \| 'leafer'` 切换工作正常(选完 reload 生效)
 
 ---
 

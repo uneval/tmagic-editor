@@ -173,6 +173,13 @@ export interface Services {
 // #endregion Services
 
 export interface StageOptions {
+  /**
+   * editor 端画布渲染器选择(M2 leafer-components 引入)。
+   * 透传给 StageCoreConfig.renderer。
+   * - 'iframe':默认,沿用 iframe + runtime
+   * - 'leafer':用 leafer-ui canvas 直渲染
+   */
+  renderer?: 'iframe' | 'leafer';
   runtimeUrl?: string;
   autoScrollIntoView?: boolean;
   containerHighlightClassName?: string;

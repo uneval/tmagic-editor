@@ -203,6 +203,7 @@ keybindingService.register(keybindingConfig);
 keybindingService.registerEl('global');
 
 const stageOptions: StageOptions = {
+  renderer: props.renderer,
   runtimeUrl: props.runtimeUrl,
   autoScrollIntoView: props.autoScrollIntoView,
   render: props.render,

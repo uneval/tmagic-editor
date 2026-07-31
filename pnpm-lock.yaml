@@ -485,6 +485,9 @@ importers:
       keycon:
         specifier: ^1.4.0
         version: 1.4.0
+      leafer-ui:
+        specifier: ^2.0.0
+        version: 2.2.7
       lodash-es:
         specifier: ^4.17.21
         version: 4.17.21
@@ -507,9 +510,6 @@ importers:
       '@types/lodash-es':
         specifier: ^4.17.4
         version: 4.17.12
-      leafer-ui:
-        specifier: ^2.0.0
-        version: 2.2.7
 
   packages/table:
     dependencies:

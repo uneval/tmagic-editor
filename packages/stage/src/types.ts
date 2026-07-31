@@ -68,6 +68,18 @@ export interface StageCoreConfig {
   snapElementQuerySelector?: string;
   /** 放大倍数，默认1倍 */
   zoom?: number;
+  /**
+   * editor 端 canvas 渲染器选择。
+   * - 'iframe':原方案,iframe + Vue/React runtime(默认,向后兼容)
+   * - 'leafer':leafer-ui canvas 直渲染(M2 引入)
+   */
+  renderer?: 'iframe' | 'leafer';
+  /**
+   * leafer 路径下必填:业务方注册的 shape 集合。
+   * iframe 路径下忽略。
+   * 用 LeaferShapeRegistry 类型避免循环引用;通过 type-only import 隔离。
+   */
+  shapeRegistry?: import('./LeaferShapeRegistry').LeaferShapeRegistry;
   canSelect?: CanSelect;
   isContainer?: IsContainer;
   /**
@@ -154,6 +166,45 @@ export interface StageRenderConfig {
   zoom: number | undefined;
   renderType?: RenderType;
   customizedRender?: () => Promise<HTMLElement | null | void>;
+}
+
+/**
+ * 编辑器端 canvas 渲染器抽象。
+ * - StageRender:基于 iframe + Runtime(原方案,保留)
+ * - LeaferRender:基于 leafer-ui canvas(M2 引入,默认)
+ *
+ * 注意:Render 故意只暴露 editor service 在画布操作中**实际调用**的方法。
+ * moveable / ActionManager / StageMask 这些 iframe DOM 专属的逻辑
+ * 在 leafer 路径下不通过 Render 调用,StageCore 内部跳过即可。
+ *
+ * getDocument / getTargetElement / getElementsFromPoint 是 DOM 风格 API,
+ * 在 leafer 路径下被 stub 掉(null / [])。这些调用方都是 iframe-only
+ * (drop 定位 / 上下文菜单 / 滚动容器),leafer 路径下不触发。
+ */
+export interface Render {
+  readonly kind: 'iframe' | 'leafer';
+  /** 挂载到 DOM 容器 */
+  mount(el: HTMLDivElement): Promise<void>;
+  /** 销毁,释放资源 */
+  destroy(): void;
+  /** 设置整个 MApp(全量重画 / diff) */
+  setRoot(root: MApp, pageId?: Id): Promise<void>;
+  /** 设置缩放 */
+  setZoom(zoom: number): void;
+  /** 更新单节点 */
+  update(data: UpdateData): Promise<void>;
+  /** 增加单节点 */
+  add(data: UpdateData): Promise<void>;
+  /** 删除单节点 */
+  remove(data: RemoveData): Promise<void>;
+  /** 选中(高亮 + 通知外部) */
+  select(ids: Id[]): Promise<void>;
+  /** 通过 id 查找元素(iframe 返回 HTMLElement;leafer 返回 null) */
+  getTargetElement(id: Id): HTMLElement | null;
+  /** 同步读 document(leafer 返回 undefined) */
+  getDocument(): Document | undefined;
+  /** 坐标下元素数组(leafer 返回 []) */
+  getElementsFromPoint(point: Point): HTMLElement[];
 }
 
 export interface StageMaskConfig {

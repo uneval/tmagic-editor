@@ -26,6 +26,7 @@ import { getIdFromEl } from '@tmagic/core';
 
 import ActionManager from './ActionManager';
 import { DEFAULT_ZOOM, PAGE_CLASS } from './const';
+import LeaferRender from './LeaferRender';
 import StageFlashHighlight from './StageFlashHighlight';
 import StageMask from './StageMask';
 import StageRender from './StageRender';
@@ -60,6 +61,12 @@ export default class StageCore extends EventEmitter {
   /** 非点击画布选中组件时，是否对选中区域做高亮闪烁提示，默认开启 */
   private disabledFlashTip: boolean;
 
+  /**
+   * leafer 路径下的渲染器(独立属性,避免改动 StageCore 现有 iframe 路径)。
+   * 与 renderer 互斥:`config.renderer === 'leafer'` 时 leaferRender 有值,renderer 为 null。
+   */
+  public leaferRender: LeaferRender | null = null;
+
   constructor(config: StageCoreConfig) {
     super();
 
@@ -67,17 +74,28 @@ export default class StageCore extends EventEmitter {
     this.customizedRender = config.render;
     this.disabledFlashTip = config.disabledFlashTip ?? false;
 
-    this.renderer = new StageRender({
-      runtimeUrl: config.runtimeUrl,
-      zoom: config.zoom,
-      renderType: config.renderType,
-      customizedRender: async (): Promise<HTMLElement | null | void> => {
-        if (this?.customizedRender) {
-          return await this.customizedRender(this);
-        }
-        return null;
-      },
-    });
+    // 根据 config.renderer 选 StageRender (iframe) 或 LeaferRender (canvas)
+    // 默认 'iframe' 保持向后兼容,M2 之后业务方显式传 'leafer' 切新
+    const rendererKind = config.renderer ?? 'iframe';
+    if (rendererKind === 'leafer') {
+      // leafer 路径:LeaferRender 走独立属性,StageCore 不创建 StageRender
+      this.leaferRender = new LeaferRender({
+        zoom: config.zoom,
+        shapeRegistry: config.shapeRegistry,
+      });
+    } else {
+      this.renderer = new StageRender({
+        runtimeUrl: config.runtimeUrl,
+        zoom: config.zoom,
+        renderType: config.renderType,
+        customizedRender: async (): Promise<HTMLElement | null | void> => {
+          if (this?.customizedRender) {
+            return await this.customizedRender(this);
+          }
+          return null;
+        },
+      });
+    }
     this.mask = new StageMask({
       guidesOptions: config.guidesOptions,
       disabledRule: config.disabledRule,

@@ -25,10 +25,21 @@ import { getElById, getHost, guid, injectStyle, isSameDomain } from '@tmagic/cor
 
 import { DEFAULT_ZOOM, RenderType } from './const';
 import style from './style.css?raw';
-import type { Point, RemoveData, RenderEvents, Runtime, RuntimeWindow, StageRenderConfig, UpdateData } from './types';
+import type { MApp } from '@tmagic/core';
+import type {
+  Point,
+  RemoveData,
+  Render,
+  RenderEvents,
+  Runtime,
+  RuntimeWindow,
+  StageRenderConfig,
+  UpdateData,
+} from './types';
 import { addSelectedClassName, removeSelectedClassName } from './util';
 
-export default class StageRender extends EventEmitter {
+export default class StageRender extends EventEmitter implements Render {
+  public readonly kind = 'iframe' as const;
   /** 组件的js、css执行的环境，直接渲染为当前window，iframe渲染则为iframe.contentWindow */
   public contentWindow: RuntimeWindow | null = null;
   public runtime: Runtime | null = null;
@@ -100,6 +111,19 @@ export default class StageRender extends EventEmitter {
 
   public setZoom(zoom: number = DEFAULT_ZOOM): void {
     this.zoom = zoom;
+  }
+
+  /**
+   * Render 接口:setRoot
+   * 把整个 MApp 推给 runtime,runtime 端负责渲染。pageId 决定初始 active page。
+   * StageRender 没有自己的 DSL→DOM 逻辑,实际渲染走 runtime。
+   */
+  public async setRoot(root: MApp, pageId?: Id): Promise<void> {
+    const runtime = await this.getRuntime();
+    runtime?.updateRootConfig?.(root);
+    if (pageId !== undefined) {
+      runtime?.updatePageId?.(pageId);
+    }
   }
 
   /**

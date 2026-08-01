@@ -22,8 +22,8 @@
 import { computed, inject } from 'vue';
 
 import { useServices } from '@editor/hooks/use-services';
-import { isStageMountable } from '@editor/utils/stage';
 import type { CustomContentMenuFunction, MenuButton, MenuComponent, StageOptions, WorkspaceSlots } from '@editor/type';
+import { isStageMountable } from '@editor/utils/stage';
 
 import MagicStage from './viewer/Stage.vue';
 import Breadcrumb from './Breadcrumb.vue';

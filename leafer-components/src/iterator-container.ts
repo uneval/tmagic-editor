@@ -16,13 +16,13 @@
  * limitations under the License.
  */
 
-import type { ShapeFn } from './utils'
-import { buildPlaceholderRect } from './placeholder'
+import { buildPlaceholderRect } from './placeholder';
+import type { ShapeFn } from './utils';
 
 /**
  * iterator-container placeholder:数据源驱动的循环容器。
  * editor 端占位,运行时通过 dataSource 展开。
  */
-const shape: ShapeFn = (config) => buildPlaceholderRect(config)
+const shape: ShapeFn = (config) => buildPlaceholderRect(config);
 
-export default shape
+export default shape;

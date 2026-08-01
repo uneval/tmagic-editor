@@ -68,15 +68,15 @@ export default class StageCore extends EventEmitter {
     this.disabledFlashTip = config.disabledFlashTip ?? false;
 
     this.renderer = new StageRender({
-        runtimeUrl: config.runtimeUrl,
-        zoom: config.zoom,
-        renderType: config.renderType,
-        customizedRender: async (): Promise<HTMLElement | null | void> => {
-          if (this?.customizedRender) {
-            return await this.customizedRender(this);
-          }
-          return null;
-        },
+      runtimeUrl: config.runtimeUrl,
+      zoom: config.zoom,
+      renderType: config.renderType,
+      customizedRender: async (): Promise<HTMLElement | null | void> => {
+        if (this?.customizedRender) {
+          return await this.customizedRender(this);
+        }
+        return null;
+      },
     });
     this.mask = new StageMask({
       guidesOptions: config.guidesOptions,

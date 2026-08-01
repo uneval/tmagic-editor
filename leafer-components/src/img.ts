@@ -16,14 +16,14 @@
  * limitations under the License.
  */
 
-import { Image } from 'leafer-ui'
+import { Image } from 'leafer-ui';
 
-import type { MComponent } from '@tmagic/schema'
+import type { MComponent } from '@tmagic/schema';
 
-import { commonVisualProps, parsePx, type ShapeFn } from './utils'
+import { commonVisualProps, parsePx, type ShapeFn } from './utils';
 
 const shape: ShapeFn = (config) => {
-  const c = config as MComponent & { src?: string; url?: string }
+  const c = config as MComponent & { src?: string; url?: string };
   return new Image({
     // Runtime 用 src 渲染图片,url 只是点击跳转地址。
     url: c.src ?? c.url ?? '',
@@ -32,7 +32,7 @@ const shape: ShapeFn = (config) => {
     width: parsePx(c.style?.width),
     height: parsePx(c.style?.height),
     ...commonVisualProps(c.style),
-  })
-}
+  });
+};
 
-export default shape
+export default shape;

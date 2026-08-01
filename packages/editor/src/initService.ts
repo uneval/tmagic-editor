@@ -24,8 +24,8 @@ import {
   updateNode,
 } from '@tmagic/core';
 import { ChangeRecord } from '@tmagic/form';
-import StageCore from '@tmagic/stage';
 import LeaferStage from '@tmagic/leafer-stage';
+import StageCore from '@tmagic/stage';
 import { getDepNodeIds, getNodes, isPage, isValueIncludeDataSource } from '@tmagic/utils';
 
 import PropsPanel from './layouts/PropsPanel.vue';

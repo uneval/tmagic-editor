@@ -20,12 +20,11 @@ import { EventEmitter } from 'events';
 
 import { snapdom, SnapdomOptions } from '@zumer/snapdom';
 
-import type { Id } from '@tmagic/core';
+import type { Id, MApp } from '@tmagic/core';
 import { getElById, getHost, guid, injectStyle, isSameDomain } from '@tmagic/core';
 
 import { DEFAULT_ZOOM, RenderType } from './const';
 import style from './style.css?raw';
-import type { MApp } from '@tmagic/core';
 import type {
   Point,
   RemoveData,

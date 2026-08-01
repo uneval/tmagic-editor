@@ -16,13 +16,13 @@
  * limitations under the License.
  */
 
-import type { ShapeFn } from './utils'
-import { buildPlaceholderRect } from './placeholder'
+import { buildPlaceholderRect } from './placeholder';
+import type { ShapeFn } from './utils';
 
 /**
  * page-fragment placeholder:跨页引用的页面片,editor 端暂时占位,
  * 真实内容在 runtime 端通过引用加载。
  */
-const shape: ShapeFn = (config) => buildPlaceholderRect(config)
+const shape: ShapeFn = (config) => buildPlaceholderRect(config);
 
-export default shape
+export default shape;

@@ -2,7 +2,13 @@ import { ref } from 'vue';
 
 import { asyncLoadJs } from '@tmagic/editor';
 
-const { VITE_ENTRY_PATH } = import.meta.env;
+const { VITE_ENTRY_PATH, MODE } = import.meta.env;
+
+// Keep the playground usable when Vite is started without loading its mode env
+// file. An undefined entry path otherwise becomes a valid-looking URL such as
+// `/undefined/config/index.umd.cjs`, which silently prevents all preset
+// configs from being registered.
+const entryPath = (VITE_ENTRY_PATH || (MODE === 'react' ? './entry/react' : './entry/vue')).replace(/\/$/, '');
 
 export const useEditorRes = () => {
   const propsValues = ref<Record<string, any>>({});
@@ -18,19 +24,19 @@ export const useEditorRes = () => {
     },
   });
 
-  asyncLoadJs(`${VITE_ENTRY_PATH}/config/index.umd.cjs`).then(() => {
+  asyncLoadJs(`${entryPath}/config/index.umd.cjs`).then(() => {
     propsConfigs.value = (globalThis as any).magicPresetConfigs;
   });
-  asyncLoadJs(`${VITE_ENTRY_PATH}/value/index.umd.cjs`).then(() => {
+  asyncLoadJs(`${entryPath}/value/index.umd.cjs`).then(() => {
     propsValues.value = (globalThis as any).magicPresetValues;
   });
-  asyncLoadJs(`${VITE_ENTRY_PATH}/event/index.umd.cjs`).then(() => {
+  asyncLoadJs(`${entryPath}/event/index.umd.cjs`).then(() => {
     eventMethodList.value = (globalThis as any).magicPresetEvents;
   });
-  asyncLoadJs(`${VITE_ENTRY_PATH}/ds-config/index.umd.cjs`).then(() => {
+  asyncLoadJs(`${entryPath}/ds-config/index.umd.cjs`).then(() => {
     datasourceConfigs.value = (globalThis as any).magicPresetDsConfigs;
   });
-  asyncLoadJs(`${VITE_ENTRY_PATH}/ds-value/index.umd.cjs`).then(() => {
+  asyncLoadJs(`${entryPath}/ds-value/index.umd.cjs`).then(() => {
     datasourceValues.value = (globalThis as any).magicPresetDsValues;
   });
 

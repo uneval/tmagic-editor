@@ -1,10 +1,9 @@
 <template>
-  <div ref="propsPanel" class="m-editor-props-panel" v-show="nodes.length === 1">
+  <div class="m-editor-props-panel" v-show="nodes.length === 1">
     <slot name="props-panel-header"></slot>
     <FormPanel
       ref="propertyFormPanel"
       class="m-editor-props-property-panel"
-      :class="{ 'show-style-panel': showStylePanel }"
       :config="curFormConfig"
       :values="values"
       :disabledShowSrc="disabledShowSrc"
@@ -15,66 +14,21 @@
       @mounted="mountedHandler"
       @unmounted="unmountedHandler"
     ></FormPanel>
-
-    <Resizer v-if="showStylePanel" @change="widthChange"></Resizer>
-
-    <FormPanel
-      v-if="showStylePanel"
-      class="m-editor-props-style-panel"
-      label-position="top"
-      code-value-key="style"
-      :config="styleFormConfig"
-      :values="values"
-      :disabledShowSrc="disabledShowSrc"
-      :extendState="extendState"
-      @submit="(v, eventData, error) => submit(v, eventData, error, 'style')"
-      @submit-error="errorHandler"
-      @form-error="errorHandler"
-    >
-      <template #props-form-panel-header>
-        <div class="m-editor-props-style-panel-title">
-          <span>样式</span>
-          <div>
-            <TMagicButton link size="small" @click="toggleStylePanel(false)"
-              ><MIcon :icon="Close"></MIcon
-            ></TMagicButton>
-          </div>
-        </div>
-      </template>
-    </FormPanel>
-
-    <TMagicButton
-      v-if="showStylePanelToggleButton && !showStylePanel"
-      class="m-editor-props-panel-style-icon"
-      circle
-      @click="toggleStylePanel(true)"
-    >
-      <MIcon :icon="Sugar"></MIcon>
-    </TMagicButton>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { computed, inject, onBeforeUnmount, onMounted, ref, useTemplateRef, watch, watchEffect } from 'vue';
-import { Close, Sugar } from '@element-plus/icons-vue';
-import type { OnDrag } from 'gesto';
+import { computed, inject, onBeforeUnmount, ref, useTemplateRef, watchEffect } from 'vue';
 
 import { type MNode } from '@tmagic/core';
-import { TMagicButton } from '@tmagic/design';
 import type { ContainerChangeEventData, FormState, FormValue } from '@tmagic/form';
 import { setValueByKeyPath } from '@tmagic/utils';
 
-import MIcon from '@editor/components/Icon.vue';
-import Resizer from '@editor/components/Resizer.vue';
 import { ENABLE_PROPS_FORM_VALIDATE } from '@editor/editorProps';
 import { useServices } from '@editor/hooks/use-services';
-import { Protocol } from '@editor/services/storage';
 import type { NodeInvalidSource, PropsPanelSlots } from '@editor/type';
-import { styleTabConfig } from '@editor/utils';
-import { PROPS_PANEL_WIDTH_STORAGE_KEY } from '@editor/utils/const';
 
 import FormPanel from './FormPanel.vue';
-import { useStylePanel } from './use-style-panel';
 
 defineSlots<PropsPanelSlots>();
 
@@ -94,7 +48,7 @@ const emit = defineEmits<{
   unmounted: [];
 }>();
 
-const { editorService, uiService, propsService, storageService } = useServices();
+const { editorService, propsService } = useServices();
 
 const enablePropsFormValidate = inject(ENABLE_PROPS_FORM_VALIDATE, false);
 
@@ -103,13 +57,6 @@ const values = ref<FormValue>({});
 const curFormConfig = ref<any>([]);
 const node = computed(() => editorService.get('node'));
 const nodes = computed(() => editorService.get('nodes'));
-
-const styleFormConfig = [
-  {
-    tabPosition: 'right',
-    items: styleTabConfig.items,
-  },
-];
 
 // 用单调递增序号标记每次 init 调用，只让"最新一次"的 await 结果落到 ref 上。
 // 避免节点快速切换时多个 init 并发 + 解析顺序错乱导致 stale config 覆盖最新选中节点，
@@ -154,6 +101,11 @@ const submit = async (
   source: NodeInvalidSource = 'props',
 ) => {
   try {
+    const isStyleChange = eventData?.changeRecords?.some(
+      ({ propPath }) => propPath === 'style' || propPath?.startsWith('style.'),
+    );
+    const invalidInfoSource = source === 'props' && isStyleChange ? 'style' : source;
+
     if (!v.id) {
       v.id = values.value.id;
     }
@@ -194,7 +146,9 @@ const submit = async (
       historySource,
       // 启用校验联动时，仅校验失败（error 存在）才把错误信息随更新传入 editorService 记录；
       // 其余情况（含表单校验成功、CodeEditor 源码保存）不携带 invalidInfo，由 editorService 在执行 update 时统一清除该节点错误。
-      ...(enablePropsFormValidate && error ? { invalidInfo: { id: newValue.id, source, error: error?.message } } : {}),
+      ...(enablePropsFormValidate && error
+        ? { invalidInfo: { id: newValue.id, source: invalidInfoSource, error: error?.message } }
+        : {}),
     });
   } catch (e: any) {
     emit('submit-error', e);
@@ -214,44 +168,6 @@ const mountedHandler = () => {
 const unmountedHandler = () => {
   emit('unmounted');
 };
-
-const propsPanelEl = useTemplateRef('propsPanel');
-const propsPanelWidth = ref(
-  storageService.getItem(PROPS_PANEL_WIDTH_STORAGE_KEY, { protocol: Protocol.NUMBER }) || 300,
-);
-
-onMounted(() => {
-  propsPanelEl.value?.style.setProperty('--props-style-panel-width', `${Math.max(propsPanelWidth.value, 0)}px`);
-});
-
-const widthChange = ({ deltaX }: OnDrag) => {
-  if (!propsPanelEl.value) {
-    return;
-  }
-
-  const width = globalThis.parseFloat(
-    getComputedStyle(propsPanelEl.value).getPropertyValue('--props-style-panel-width'),
-  );
-
-  let value = width - deltaX;
-  if (value > uiService.get('columnWidth').right) {
-    value = uiService.get('columnWidth').right - 40;
-  }
-  propsPanelWidth.value = Math.max(value, 0);
-};
-
-watch(propsPanelWidth, (value) => {
-  propsPanelEl.value?.style.setProperty('--props-style-panel-width', `${value}px`);
-  storageService.setItem(PROPS_PANEL_WIDTH_STORAGE_KEY, value, { protocol: Protocol.NUMBER });
-});
-
-const { showStylePanel, showStylePanelToggleButton, toggleStylePanel } = useStylePanel(
-  {
-    storageService,
-    uiService,
-  },
-  propsPanelWidth,
-);
 
 const propertyFormPanelRef = useTemplateRef<InstanceType<typeof FormPanel>>('propertyFormPanel');
 defineExpose({

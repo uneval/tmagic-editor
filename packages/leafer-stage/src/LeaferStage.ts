@@ -54,6 +54,13 @@ const parseCssLength = (value: unknown, relativeTo?: number): number | undefined
   return Number.isFinite(number) ? number : undefined;
 };
 
+const parseCssAngle = (value: unknown): number | undefined => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value !== 'string') return undefined;
+  const match = value.trim().match(/^(-?\d+(?:\.\d+)?)\s*(?:deg)?$/i);
+  return match ? Number(match[1]) : undefined;
+};
+
 const pageVisualProps = (style: Record<string, any> | undefined): Record<string, unknown> => {
   if (!style) return {};
   const props: Record<string, unknown> = {};
@@ -70,7 +77,80 @@ const pageVisualProps = (style: Record<string, any> | undefined): Record<string,
     props.stroke = style.borderColor;
   }
   if (style.boxShadow && style.boxShadow !== 'none') props.shadow = style.boxShadow;
+  if (style.display === 'none') props.visible = false;
+  const zIndex = parseCssLength(style.zIndex);
+  if (zIndex !== undefined) props.zIndex = zIndex;
+  const cornerRadius = parseCssLength(style.borderRadius);
+  if (cornerRadius !== undefined) props.cornerRadius = cornerRadius;
+  if (style.borderStyle === 'dashed') props.dashPattern = [6, 4];
+  if (style.borderStyle === 'dotted') props.dashPattern = [1, 3];
+
+  const { transform } = style;
+  const transformProps: Record<string, number> = {};
+  if (transform && typeof transform === 'object') {
+    const rotate = parseCssAngle(transform.rotate);
+    const scale = parseCssLength(transform.scale);
+    if (rotate !== undefined) transformProps.rotation = rotate;
+    if (scale !== undefined) {
+      transformProps.scaleX = scale;
+      transformProps.scaleY = scale;
+    }
+  }
+  Object.assign(props, transformProps);
   return props;
+};
+
+const pageBackgroundFill = (style: Record<string, any> | undefined): unknown => {
+  const image = typeof style?.backgroundImage === 'string' ? style.backgroundImage.trim() : '';
+  if (!image || image === 'none') return style?.backgroundColor || '#fff';
+  if (/^(linear|radial|conic)-gradient/i.test(image)) return image;
+
+  const urlMatch = image.match(/^url\(\s*["']?(.*?)["']?\s*\)$/i);
+  const position = typeof style?.backgroundPosition === 'string' ? style.backgroundPosition.trim().toLowerCase() : '';
+  const positionTokens = position.split(/\s+/).filter(Boolean);
+  const horizontal = positionTokens.find((token: string) => ['left', 'center', 'right'].includes(token));
+  const vertical = positionTokens.find((token: string) => ['top', 'center', 'bottom'].includes(token));
+  let align = positionTokens.length === 1 ? positionTokens[0] : '';
+  if (horizontal === 'center' && vertical === 'center') align = 'center';
+  else if (horizontal === 'left' && vertical === 'top') align = 'top-left';
+  else if (horizontal === 'right' && vertical === 'top') align = 'top-right';
+  else if (horizontal === 'right' && vertical === 'bottom') align = 'bottom-right';
+  else if (horizontal === 'left' && vertical === 'bottom') align = 'bottom-left';
+  else if (!align) align = vertical || horizontal || 'top-left';
+
+  const paint: Record<string, unknown> = {
+    type: 'image',
+    url: urlMatch?.[1] ?? image,
+    align,
+  };
+  const size = typeof style?.backgroundSize === 'string' ? style.backgroundSize.trim().toLowerCase() : '';
+  if (size === 'cover') paint.mode = 'cover';
+  else if (size === 'contain') paint.mode = 'fit';
+  else if (size === '100% 100%') paint.mode = 'stretch';
+
+  const repeat = typeof style?.backgroundRepeat === 'string' ? style.backgroundRepeat.trim().toLowerCase() : '';
+  if (repeat === 'no-repeat') paint.repeat = false;
+  else if (repeat === 'repeat-x') paint.repeat = 'x';
+  else if (repeat === 'repeat-y') paint.repeat = 'y';
+  else if (repeat === 'repeat') paint.repeat = true;
+  return paint;
+};
+
+const applyPageVisualProps = (node: any, style: Record<string, any> | undefined) => {
+  if (!node) return;
+
+  const props = pageVisualProps(style);
+  node.opacity = props.opacity ?? 1;
+  node.visible = props.visible ?? true;
+  node.zIndex = props.zIndex ?? 0;
+  node.cornerRadius = props.cornerRadius ?? 0;
+  node.strokeWidth = props.strokeWidth ?? 0;
+  node.stroke = props.stroke ?? null;
+  node.dashPattern = props.dashPattern ?? null;
+  node.shadow = props.shadow ?? null;
+  node.rotation = props.rotation ?? 0;
+  node.scaleX = props.scaleX ?? 1;
+  node.scaleY = props.scaleY ?? 1;
 };
 
 /**
@@ -204,23 +284,20 @@ export default class LeaferStage extends EventEmitter {
     this.app.on('pointer.up', this.capturePointerPoint);
     this.editor?.on('editor.select', (event: { editor?: { list?: any[] } }) => {
       const nodes = event.editor?.list ?? [];
+      const selection = this.normalizeSelection(nodes);
       this.dragSession.setSelection(
-        nodes
-          .filter((node) => node.id !== undefined && node.id !== null)
-          .map((node) => ({ id: node.id as Id, style: this.readNodeStyle(node) })),
+        selection.nodes.map((node) => ({ id: node.id as Id, style: this.readNodeStyle(node) })),
       );
-      const parentContainer = nodes[0]?.parent ?? this.rootGroup;
+      const parentContainer = selection.nodes[0]?.parent ?? this.rootGroup;
       this.snap?.updateConfig({ parentContainer });
-      const ids = nodes
-        .map((node) => node.id)
-        .filter((id): id is Id => id !== undefined && id !== null && this.nodeMap.has(id));
-      this.emit('select', ids);
+      this.emit('select', selection.ids);
     });
     for (const eventName of ['editor.move', 'editor.scale', 'editor.rotate', 'editor.skew']) {
       this.editor?.on(eventName, (event: { editor?: { list?: any[] }; target?: any }) => {
         const nodes = event.editor?.list ?? (event.target ? [event.target] : []);
         nodes.forEach((node) => {
-          if (node.id !== undefined && node.id !== null) this.dragSession.markChanged([node.id]);
+          const mapped = this.resolveSelectionNode(node);
+          if (mapped) this.dragSession.markChanged([mapped.id]);
         });
       });
     }
@@ -326,7 +403,7 @@ export default class LeaferStage extends EventEmitter {
         this.manualPageIds.has(page.id) && sourceX !== undefined ? sourceX : sourceX && sourceX !== 0 ? sourceX : autoX;
       const pageY =
         this.manualPageIds.has(page.id) && sourceY !== undefined ? sourceY : sourceY && sourceY !== 0 ? sourceY : autoY;
-      const fill = pageStyle?.backgroundImage || pageStyle?.backgroundColor || '#fff';
+      const fill = pageBackgroundFill(pageStyle);
 
       // Frame 提供页面固定宽高; overflow=show 保证拖动中的子节点不会被页面裁剪。
       // Group 的宽高随子节点变化,不能作为页面的编辑边界。
@@ -400,9 +477,12 @@ export default class LeaferStage extends EventEmitter {
       if (width !== undefined) page.width = width;
       if (height !== undefined) page.height = height;
       const background = page.children?.[0];
+      applyPageVisualProps(page, style);
       if (background) {
         if (width !== undefined) background.width = width;
         if (height !== undefined) background.height = height;
+        background.fill = pageBackgroundFill(style);
+        applyPageVisualProps(background, style);
       }
       this.manualPageIds.add(data.config.id);
       return;
@@ -525,6 +605,46 @@ export default class LeaferStage extends EventEmitter {
     return style;
   }
 
+  /**
+   * 将 Leafer Editor 的命中节点映射回 DSL 节点。
+   *
+   * 组件和页面通常由多个 Leafer 绘制节点组成,例如页面背景 Rect、按钮的
+   * 背景 Rect 和文字 Text 都不是 DSL 节点。Editor 可能把这些绘制节点放进
+   * selection list,所以不能只读取当前节点的 id;必须沿 parent 向上找到
+   * nodeMap 中登记的最近 DSL 节点。
+   */
+  private resolveSelectionNode(node: any): { id: Id; node: any } | null {
+    const visited = new Set<any>();
+    let current = node;
+
+    while (current && !visited.has(current)) {
+      visited.add(current);
+      const id = current.id as Id | undefined;
+      if (id !== undefined && id !== null && this.nodeMap.get(id) === current) {
+        return { id, node: current };
+      }
+      current = current.parent;
+    }
+
+    return null;
+  }
+
+  private normalizeSelection(nodes: any[]): { ids: Id[]; nodes: any[] } {
+    const ids: Id[] = [];
+    const selectedNodes: any[] = [];
+    const seen = new Set<Id>();
+
+    nodes.forEach((node) => {
+      const mapped = this.resolveSelectionNode(node);
+      if (!mapped || seen.has(mapped.id)) return;
+      seen.add(mapped.id);
+      ids.push(mapped.id);
+      selectedNodes.push(mapped.node);
+    });
+
+    return { ids, nodes: selectedNodes };
+  }
+
   // -------------------------------------------------------------------------
   // 内部工具
   // -------------------------------------------------------------------------
@@ -587,10 +707,27 @@ export default class LeaferStage extends EventEmitter {
   private resolveRelativeLengths(config: MNode, parentSize?: { width?: number; height?: number }): MNode {
     if (!config.style || !parentSize) return config;
     const style = { ...config.style };
-    style.left = parseCssLength(style.left, parentSize.width) ?? style.left;
-    style.top = parseCssLength(style.top, parentSize.height) ?? style.top;
-    style.width = parseCssLength(style.width, parentSize.width) ?? style.width;
-    style.height = parseCssLength(style.height, parentSize.height) ?? style.height;
+    const width = parseCssLength(style.width, parentSize.width);
+    const height = parseCssLength(style.height, parentSize.height);
+    const left = parseCssLength(style.left, parentSize.width);
+    const top = parseCssLength(style.top, parentSize.height);
+    const right = parseCssLength(style.right, parentSize.width);
+    const bottom = parseCssLength(style.bottom, parentSize.height);
+    const marginLeft = parseCssLength(style.marginLeft) ?? 0;
+    const marginTop = parseCssLength(style.marginTop) ?? 0;
+    const marginRight = parseCssLength(style.marginRight) ?? 0;
+    const marginBottom = parseCssLength(style.marginBottom) ?? 0;
+
+    if (left !== undefined) style.left = left + marginLeft;
+    else if (right !== undefined && parentSize.width !== undefined && width !== undefined) {
+      style.left = parentSize.width - right - width - marginRight;
+    }
+    if (top !== undefined) style.top = top + marginTop;
+    else if (bottom !== undefined && parentSize.height !== undefined && height !== undefined) {
+      style.top = parentSize.height - bottom - height - marginBottom;
+    }
+    style.width = width ?? style.width;
+    style.height = height ?? style.height;
     return { ...config, style };
   }
 

@@ -16,27 +16,37 @@
  * limitations under the License.
  */
 
-import { Frame } from 'leafer-ui'
+import { Frame } from 'leafer-ui';
 
-import type { MPage } from '@tmagic/schema'
+import type { MPage } from '@tmagic/schema';
 
-import { commonVisualProps, parsePx, type ShapeFn, type ShapeWithChildren } from './utils'
+import {
+  backgroundPaint,
+  boxSpacing,
+  commonVisualProps,
+  overflowMode,
+  parsePx,
+  type ShapeFn,
+  type ShapeWithChildren,
+} from './utils';
 
 /**
  * page = 根 Frame,持有 items。
  * 与 vue-components/page 行为对齐(page 渲染为容器组件,内含 items)。
  */
 const shape: ShapeFn = (config, _ctx): ShapeWithChildren => {
-  const c = config as MPage
+  const c = config as MPage;
   const node = new Frame({
     x: parsePx(c.style?.left) ?? 0,
     y: parsePx(c.style?.top) ?? 0,
     width: parsePx(c.style?.width),
     height: parsePx(c.style?.height),
-    fill: c.style?.backgroundColor as string | undefined,
+    overflow: overflowMode(c.style),
+    padding: boxSpacing(c.style, 'padding'),
+    fill: backgroundPaint(c.style),
     ...commonVisualProps(c.style),
-  })
-  return { node, children: c.items ?? [] }
-}
+  });
+  return { node, children: c.items ?? [] };
+};
 
-export default shape
+export default shape;

@@ -103,13 +103,17 @@ describe('fillConfig', () => {
     expect(result[0].labelWidth).toBe('120px');
   });
 
-  test('styleTabConfig.display 跟随 uiService showStylePanel', () => {
+  test('styleTabConfig 始终显示,统一使用属性面板中的样式 Tab', () => {
     const services = { uiService: { get: () => false } };
     expect(styleTabConfig.display!({ services } as any)).toBe(true);
     services.uiService.get = () => true;
-    expect(styleTabConfig.display!({ services } as any)).toBe(false);
+    expect(styleTabConfig.display!({ services } as any)).toBe(true);
     services.uiService.get = () => undefined;
-    expect(styleTabConfig.display!({ services } as any)).toBe(false);
+    expect(styleTabConfig.display!({ services } as any)).toBe(true);
+  });
+
+  test('宽屏也保留样式 Tab,样式不应切换到第二套面板', () => {
+    expect(styleTabConfig.display!({ services: {} } as any)).toBe(true);
   });
 
   test('styleTabConfig 内 transform 项 defaultValue 返回 {}', () => {

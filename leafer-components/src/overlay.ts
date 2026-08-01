@@ -16,33 +16,37 @@
  * limitations under the License.
  */
 
-import { Frame } from 'leafer-ui'
+import { Frame } from 'leafer-ui';
 
-import type { MContainer } from '@tmagic/schema'
+import type { MContainer } from '@tmagic/schema';
 
 import {
+  backgroundPaint,
+  boxSpacing,
   commonVisualProps,
-  normalizeColor,
+  overflowMode,
   parsePx,
   type ShapeFn,
   type ShapeWithChildren,
-} from './utils'
+} from './utils';
 
 /**
  * overlay = 同 container,业务方可后续区分(置顶 / 模态 / fixed 定位等)
  */
 const shape: ShapeFn = (config, _ctx): ShapeWithChildren => {
-  const c = config as MContainer
+  const c = config as MContainer;
   const node = new Frame({
     x: parsePx(c.style?.left) ?? 0,
     y: parsePx(c.style?.top) ?? 0,
     width: parsePx(c.style?.width),
     height: parsePx(c.style?.height),
-    fill: normalizeColor(c.style?.backgroundColor),
+    overflow: overflowMode(c.style),
+    padding: boxSpacing(c.style, 'padding'),
+    fill: backgroundPaint(c.style),
     cornerRadius: parsePx(c.style?.borderRadius),
     ...commonVisualProps(c.style),
-  })
-  return { node, children: c.items ?? [] }
-}
+  });
+  return { node, children: c.items ?? [] };
+};
 
-export default shape
+export default shape;

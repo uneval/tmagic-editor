@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 
 import { NodeType } from '@tmagic/core';
 
@@ -45,13 +45,37 @@ test('getDefaultValue', async () => {
 
 describe('props service - 配置/值', () => {
   test('setPropsConfigs / getPropsConfigs / hasPropsConfig', async () => {
-    props.setPropsConfigs({
+    await props.setPropsConfigs({
       'my-comp': [{ name: 'text', type: 'text' } as any],
     });
-    await new Promise((r) => setTimeout(r, 50));
     expect(props.hasPropsConfig('my-comp')).toBe(true);
     const configs = props.getPropsConfigs();
     expect(configs['my-comp']).toBeDefined();
+  });
+
+  test('setPropsConfigs 在异步配置全部注册后再通知属性面板', async () => {
+    const handler = vi.fn();
+    props.on('props-configs-change', handler);
+
+    await props.setPropsConfigs({
+      page: [{ name: 'title', type: 'text' } as any],
+    });
+
+    expect(props.getPropsConfigs().page).toBeDefined();
+    expect(handler).toHaveBeenCalledTimes(1);
+    props.off('props-configs-change', handler);
+  });
+
+  test('getPropsConfig 等待正在注册的配置,不会提前回退到通用配置', async () => {
+    const type = 'pending-page';
+    const registering = props.setPropsConfigs({
+      [type]: [{ name: 'title', type: 'text' } as any],
+    });
+
+    const config = await props.getPropsConfig(type);
+    await registering;
+
+    expect(JSON.stringify(config)).toContain('"name":"title"');
   });
 
   test('setPropsValues / getPropsValues / hasPropsValue', async () => {

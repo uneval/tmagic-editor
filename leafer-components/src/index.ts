@@ -27,27 +27,27 @@
  * leafer-components 仅为 editor 画布渲染使用,不要在 runtime 端使用。
  */
 
-import button from './button'
-import text from './text'
-import img from './img'
-import container from './container'
-import overlay from './overlay'
-import page from './page'
-import qrcode from './qrcode'
-import pageFragment from './page-fragment'
-import pageFragmentContainer from './page-fragment-container'
-import iteratorContainer from './iterator-container'
+import button from './button';
+import container from './container';
+import img from './img';
+import iteratorContainer from './iterator-container';
+import overlay from './overlay';
+import page from './page';
+import pageFragment from './page-fragment';
+import pageFragmentContainer from './page-fragment-container';
+import qrcode from './qrcode';
+import text from './text';
 
-export { default as button } from './button'
-export { default as text } from './text'
-export { default as img } from './img'
-export { default as container } from './container'
-export { default as overlay } from './overlay'
-export { default as page } from './page'
-export { default as qrcode } from './qrcode'
-export { default as pageFragment } from './page-fragment'
-export { default as pageFragmentContainer } from './page-fragment-container'
-export { default as iteratorContainer } from './iterator-container'
+export { default as button } from './button';
+export { default as text } from './text';
+export { default as img } from './img';
+export { default as container } from './container';
+export { default as overlay } from './overlay';
+export { default as page } from './page';
+export { default as qrcode } from './qrcode';
+export { default as pageFragment } from './page-fragment';
+export { default as pageFragmentContainer } from './page-fragment-container';
+export { default as iteratorContainer } from './iterator-container';
 
 /**
  * editor 启动时一次性注册到 LeaferShapeRegistry 的内置 shape 集合。
@@ -67,23 +67,32 @@ export const builtinShapes = {
   pageFragment,
   pageFragmentContainer,
   iteratorContainer,
-} as const
+} as const;
 
 export {
   parsePx,
+  boxSpacing,
+  borderVisualProps,
+  overflowMode,
+  textOverflowMode,
+  backgroundFill,
+  backgroundPaint,
   parseShadow,
   parseGradient,
   parseFontWeight,
   normalizeColor,
+  textBoxStyle,
   type ShapeFn,
   type ShapeContext,
   type ShapeWithChildren,
   type LeaferShadow,
   type LeaferFill,
   type LeaferColorStop,
-} from './utils'
+  type LeaferBackgroundPaint,
+  type LeaferBackgroundImagePaint,
+} from './utils';
 
-export { buildPlaceholderRect } from './placeholder'
+export { buildPlaceholderRect } from './placeholder';
 
 // 业务方 `import * as lc from '@leafer-components'` 时拿到所有
-export default builtinShapes
+export default builtinShapes;

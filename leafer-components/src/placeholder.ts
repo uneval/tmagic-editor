@@ -16,27 +16,28 @@
  * limitations under the License.
  */
 
-import { Rect } from 'leafer-ui'
+import { Rect } from 'leafer-ui';
 
-import type { MComponent } from '@tmagic/core'
+import type { MComponent } from '@tmagic/core';
 
-import { parsePx } from './utils'
+import { backgroundPaint, commonVisualProps, parsePx } from './utils';
 
 /**
  * 通用占位矩形:浅灰背景 + 边框,供未实现 shape 的 type 使用。
  * qrcode / page-fragment / page-fragment-container / iterator-container 都用这个。
  */
 export const buildPlaceholderRect = (config: MComponent): Rect => {
-  const w = parsePx(config.style?.width) ?? 100
-  const h = parsePx(config.style?.height) ?? 100
+  const w = parsePx(config.style?.width) ?? 100;
+  const h = parsePx(config.style?.height) ?? 100;
   return new Rect({
     x: parsePx(config.style?.left) ?? 0,
     y: parsePx(config.style?.top) ?? 0,
     width: w,
     height: h,
-    fill: '#f5f5f5',
+    fill: backgroundPaint(config.style) ?? '#f5f5f5',
     stroke: { type: 'solid', color: '#ddd' } as any,
     strokeWidth: 1,
     cornerRadius: 4,
-  })
-}
+    ...commonVisualProps(config.style),
+  });
+};

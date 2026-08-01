@@ -74,7 +74,7 @@ export const getCondOpOptionsByFieldType = (type: string) => {
 export const styleTabConfig: TabPaneConfig = {
   title: '样式',
   lazy: true,
-  display: ({ services }: any) => !(services?.uiService?.get('showStylePanel') ?? true),
+  display: () => true,
   items: [
     {
       name: 'style',
@@ -364,10 +364,8 @@ export const fillConfig = (
 /**
  * 将属性表单配置中「样式」tab-pane 的 `display` 强制置为 `true`。
  *
- * `propsService.getPropsConfig` 返回的样式 tab 默认带有
- * `display: ({ services }) => !(services?.uiService?.get('showStylePanel') ?? true)`，
- * 在对比 / 只读展示场景（CompareForm / ViewForm）下并不需要跟随 uiService 状态隐藏，
- * 这里统一放开，保证样式 tab 始终可见。
+ * 样式 Tab 现在始终作为属性面板的一部分显示，在对比 / 只读展示场景
+ * （CompareForm / ViewForm）下同样保证样式配置可见。
  *
  * @param formConfig 组件属性表单配置
  * @returns 处理后的表单配置（不修改入参，返回浅拷贝）

@@ -62,6 +62,7 @@ class Props extends BaseService {
     /** 禁用代码块 */
     disabledCodeBlock: false,
   });
+  private pendingPropsConfigTasks = new Map<string, Promise<void>>();
 
   constructor() {
     super([
@@ -86,10 +87,20 @@ class Props extends BaseService {
     return this.state.disabledCodeBlock;
   }
 
-  public setPropsConfigs(configs: Record<string, FormConfig | PropsFormConfigFunction>) {
-    Object.keys(configs).forEach((type: string) => {
-      this.setPropsConfig(toLine(type), configs[type]);
+  public async setPropsConfigs(configs: Record<string, FormConfig | PropsFormConfigFunction>) {
+    const tasks = Object.keys(configs).map((type: string) => {
+      const normalizedType = toLine(type);
+      const task = this.setPropsConfig(normalizedType, configs[type]);
+      this.pendingPropsConfigTasks.set(normalizedType, task);
+      const clearPendingTask = () => {
+        if (this.pendingPropsConfigTasks.get(normalizedType) === task) {
+          this.pendingPropsConfigTasks.delete(normalizedType);
+        }
+      };
+      void task.then(clearPendingTask, clearPendingTask);
+      return task;
     });
+    await Promise.all(tasks);
     this.emit('props-configs-change');
   }
 
@@ -126,7 +137,9 @@ class Props extends BaseService {
       return await this.getPropsConfig('button', data);
     }
 
-    return cloneDeep(this.state.propsConfigMap[toLine(type)] || (await this.fillConfig([])));
+    const normalizedType = toLine(type);
+    await this.pendingPropsConfigTasks.get(normalizedType);
+    return cloneDeep(this.state.propsConfigMap[normalizedType] || (await this.fillConfig([])));
   }
 
   public hasPropsConfig(type: string): boolean {
@@ -245,6 +258,7 @@ class Props extends BaseService {
   public resetState() {
     this.state.propsConfigMap = {};
     this.state.propsValueMap = {};
+    this.pendingPropsConfigTasks.clear();
   }
 
   /**

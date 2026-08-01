@@ -16,43 +16,47 @@
  * limitations under the License.
  */
 
-import { Group, Rect, Text } from 'leafer-ui'
+import { Group, Rect, Text } from 'leafer-ui';
 
-import type { MComponent } from '@tmagic/schema'
+import type { MComponent } from '@tmagic/schema';
 
 import {
-  normalizeColor,
+  backgroundPaint,
+  borderVisualProps,
+  boxSpacing,
   commonVisualProps,
+  normalizeColor,
   parseFontWeight,
   parsePx,
   type ShapeFn,
-} from './utils'
+} from './utils';
 
 /**
  * 按钮 = Group[Rect(底色) + Text(文字)]
  * 与 vue-components/button 和 react-components/button 的 <button> 渲染对齐
  */
 const shape: ShapeFn = (config) => {
-  const c = config as MComponent & { text?: string }
-  const w = parsePx(c.style?.width)
-  const h = parsePx(c.style?.height)
+  const c = config as MComponent & { text?: string };
+  const w = parsePx(c.style?.width);
+  const h = parsePx(c.style?.height);
 
   const group = new Group({
     x: parsePx(c.style?.left) ?? 0,
     y: parsePx(c.style?.top) ?? 0,
     width: w,
     height: h,
-  })
+    ...commonVisualProps(c.style),
+  });
 
   group.add(
     new Rect({
       width: w,
       height: h,
-      fill: normalizeColor(c.style?.backgroundColor) ?? '#409EFF',
+      fill: backgroundPaint(c.style) ?? '#409EFF',
       cornerRadius: parsePx(c.style?.borderRadius) ?? 4,
-      ...commonVisualProps(c.style),
+      ...borderVisualProps(c.style),
     }),
-  )
+  );
 
   group.add(
     new Text({
@@ -63,13 +67,16 @@ const shape: ShapeFn = (config) => {
       fontSize: parsePx(c.style?.fontSize) ?? 14,
       fontWeight: parseFontWeight(c.style?.fontWeight),
       fontFamily: c.style?.fontFamily,
-      textAlign: 'center',
+      textAlign: c.style?.textAlign ?? 'center',
       verticalAlign: 'middle',
-      ...commonVisualProps(c.style),
+      lineHeight: parsePx(c.style?.lineHeight),
+      letterSpacing: parsePx(c.style?.letterSpacing),
+      italic: c.style?.fontStyle === 'italic',
+      padding: boxSpacing(c.style, 'padding'),
     }),
-  )
+  );
 
-  return group
-}
+  return group;
+};
 
-export default shape
+export default shape;

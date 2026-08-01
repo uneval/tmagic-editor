@@ -16,12 +16,12 @@
  * limitations under the License.
  */
 
-import QRCode from 'qrcode'
-import { Group, Rect } from 'leafer-ui'
+import { Group, Rect } from 'leafer-ui';
+import QRCode from 'qrcode';
 
-import type { MComponent } from '@tmagic/schema'
+import type { MComponent } from '@tmagic/schema';
 
-import { parsePx, type ShapeFn } from './utils'
+import { backgroundPaint, commonVisualProps, parsePx, type ShapeFn } from './utils';
 
 /**
  * qrcode = Group[白底 + 黑色模块]
@@ -29,28 +29,30 @@ import { parsePx, type ShapeFn } from './utils'
  * 避免编辑画布只显示占位矩形而预览显示真实二维码。
  */
 const shape: ShapeFn = (config) => {
-  const c = config as MComponent & { url?: string }
-  const width = parsePx(c.style?.width) ?? 100
-  const height = parsePx(c.style?.height) ?? 100
-  const size = Math.min(width, height)
-  const qr = QRCode.create(c.url ?? '')
-  const moduleCount = qr.modules.size
-  const quietZone = 4
-  const cellSize = size / (moduleCount + quietZone * 2)
-  const offsetX = (width - size) / 2 + quietZone * cellSize
-  const offsetY = (height - size) / 2 + quietZone * cellSize
+  const c = config as MComponent & { url?: string };
+  const width = parsePx(c.style?.width) ?? 100;
+  const height = parsePx(c.style?.height) ?? 100;
+  const size = Math.min(width, height);
+  const qr = QRCode.create(c.url ?? '');
+  const moduleCount = qr.modules.size;
+  const quietZone = 4;
+  const cellSize = size / (moduleCount + quietZone * 2);
+  const offsetX = (width - size) / 2 + quietZone * cellSize;
+  const offsetY = (height - size) / 2 + quietZone * cellSize;
   const group = new Group({
     x: parsePx(c.style?.left) ?? 0,
     y: parsePx(c.style?.top) ?? 0,
     width,
     height,
-  })
+    fill: backgroundPaint(c.style),
+    ...commonVisualProps(c.style),
+  });
 
-  group.add(new Rect({ width, height, fill: '#fff' }))
+  group.add(new Rect({ width, height, fill: '#fff' }));
 
   for (let row = 0; row < moduleCount; row += 1) {
     for (let column = 0; column < moduleCount; column += 1) {
-      if (!qr.modules.data[row * moduleCount + column]) continue
+      if (!qr.modules.data[row * moduleCount + column]) continue;
       group.add(
         new Rect({
           x: offsetX + column * cellSize,
@@ -59,11 +61,11 @@ const shape: ShapeFn = (config) => {
           height: cellSize + 0.01,
           fill: '#000',
         }),
-      )
+      );
     }
   }
 
-  return group
-}
+  return group;
+};
 
-export default shape
+export default shape;

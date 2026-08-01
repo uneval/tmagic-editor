@@ -28,6 +28,7 @@ import LeaferShapeRegistry from '../../src/LeaferShapeRegistry';
 import LeaferStage from '../../src/LeaferStage';
 
 class FakeNode {
+  public id?: string;
   public children: FakeNode[] = [];
   public parent: FakeNode | null = null;
 
@@ -180,6 +181,100 @@ describe('LeaferStage > constructor', () => {
     expect((r as any).pageFrames.get('page2').constructor.name).toBe('MockFrame');
   });
 
+  it('update 页面时同步更新页面视觉样式和背景', async () => {
+    const r = new LeaferStage({});
+    const page = new FakeNode() as any;
+    const background = new FakeNode() as any;
+    page.children = [background];
+
+    (r as any).nodeMap.set('page-1', page);
+    (r as any).pageFrames.set('page-1', page);
+
+    await r.update({
+      config: {
+        id: 'page-1',
+        type: 'page',
+        style: {
+          left: 12,
+          top: 24,
+          width: 375,
+          height: 667,
+          backgroundColor: '#fdd',
+          backgroundImage: 'url("page.png")',
+          backgroundSize: '100% 100%',
+          backgroundPosition: 'center center',
+          backgroundRepeat: 'no-repeat',
+          opacity: '50%',
+          borderWidth: 2,
+          borderColor: '#f00',
+          borderRadius: 8,
+          borderStyle: 'dashed',
+          boxShadow: '0 0 4px #999',
+          display: 'none',
+          zIndex: 3,
+          transform: { rotate: '30deg', scale: 1.5 },
+        },
+      },
+    } as any);
+
+    expect(page.x).toBe(12);
+    expect(page.y).toBe(24);
+    expect(page.width).toBe(375);
+    expect(page.height).toBe(667);
+    expect(page.opacity).toBe(0.5);
+    expect(page.visible).toBe(false);
+    expect(page.zIndex).toBe(3);
+    expect(page.cornerRadius).toBe(8);
+    expect(page.strokeWidth).toBe(2);
+    expect(page.stroke).toBe('#f00');
+    expect(page.dashPattern).toEqual([6, 4]);
+    expect(page.shadow).toBe('0 0 4px #999');
+    expect(page.rotation).toBe(30);
+    expect(page.scaleX).toBe(1.5);
+    expect(page.scaleY).toBe(1.5);
+    expect(background.width).toBe(375);
+    expect(background.height).toBe(667);
+    expect(background.fill).toMatchObject({
+      type: 'image',
+      url: 'page.png',
+      mode: 'stretch',
+      align: 'center',
+      repeat: false,
+    });
+    expect(background.opacity).toBe(0.5);
+    expect(background.visible).toBe(false);
+    expect(background.zIndex).toBe(3);
+    expect(background.cornerRadius).toBe(8);
+    expect(background.strokeWidth).toBe(2);
+    expect(background.stroke).toBe('#f00');
+    expect(background.dashPattern).toEqual([6, 4]);
+    expect(background.shadow).toBe('0 0 4px #999');
+    expect(background.rotation).toBe(30);
+    expect(background.scaleX).toBe(1.5);
+    expect(background.scaleY).toBe(1.5);
+  });
+
+  it('解析子节点的 right/bottom 和 margin 定位', () => {
+    const r = new LeaferStage({});
+    const resolved = (r as any).resolveRelativeLengths(
+      {
+        id: 'button-1',
+        type: 'button',
+        style: {
+          right: '20px',
+          bottom: '30px',
+          width: '100px',
+          height: '40px',
+          marginRight: '5px',
+          marginBottom: '6px',
+        },
+      },
+      { width: 375, height: 667 },
+    );
+
+    expect(resolved.style).toMatchObject({ left: 250, top: 591, width: 100, height: 40 });
+  });
+
   it('setRoot 事件契约:StageCore 依赖这个事件来清 editorService.stageLoading', async () => {
     // P0 简化:不真正 mount leafer(避免 canvas 依赖),只验证事件契约
     // - 未 mount 时 setRoot 把 root 缓存到 pendingRoot,不 emit
@@ -233,5 +328,35 @@ describe('LeaferStage > constructor', () => {
     await r.setRoot({ id: 'app', type: 'app', items: [] } as any);
 
     expect(editor.target).toBeNull();
+  });
+
+  it('点击页面背景时,沿 Leafer 父节点映射回 page DSL 节点', () => {
+    const r = new LeaferStage({});
+    const page = new FakeNode();
+    const background = new FakeNode();
+    page.id = 'page-1';
+    page.add(background);
+    (r as any).nodeMap.set(page.id, page);
+
+    const selection = (r as any).normalizeSelection([background]);
+
+    expect(selection.ids).toEqual(['page-1']);
+    expect(selection.nodes).toEqual([page]);
+  });
+
+  it('选择组件内部绘制节点时,只返回最近的 DSL 节点且不重复', () => {
+    const r = new LeaferStage({});
+    const component = new FakeNode();
+    const background = new FakeNode();
+    const text = new FakeNode();
+    component.id = 'button-1';
+    component.add(background);
+    component.add(text);
+    (r as any).nodeMap.set(component.id, component);
+
+    const selection = (r as any).normalizeSelection([background, text, component]);
+
+    expect(selection.ids).toEqual(['button-1']);
+    expect(selection.nodes).toEqual([component]);
   });
 });

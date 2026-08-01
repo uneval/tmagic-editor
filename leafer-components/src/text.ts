@@ -16,20 +16,23 @@
  * limitations under the License.
  */
 
-import { Text } from 'leafer-ui'
+import { Text } from 'leafer-ui';
 
-import type { MComponent } from '@tmagic/schema'
+import type { MComponent } from '@tmagic/schema';
 
 import {
+  boxSpacing,
   commonVisualProps,
   normalizeColor,
   parseFontWeight,
   parsePx,
   type ShapeFn,
-} from './utils'
+  textBoxStyle,
+  textOverflowMode,
+} from './utils';
 
 const shape: ShapeFn = (config) => {
-  const c = config as MComponent & { text?: string }
+  const c = config as MComponent & { text?: string };
   return new Text({
     text: c.text ?? '',
     x: parsePx(c.style?.left) ?? 0,
@@ -41,11 +44,14 @@ const shape: ShapeFn = (config) => {
     fontWeight: parseFontWeight(c.style?.fontWeight),
     fontFamily: c.style?.fontFamily,
     textAlign: c.style?.textAlign ?? 'left',
-    fontStyle: c.style?.fontStyle,
+    italic: c.style?.fontStyle === 'italic',
     lineHeight: parsePx(c.style?.lineHeight),
     letterSpacing: parsePx(c.style?.letterSpacing),
+    padding: boxSpacing(c.style, 'padding'),
+    textOverflow: textOverflowMode(c.style),
+    boxStyle: textBoxStyle(c.style),
     ...commonVisualProps(c.style),
-  })
-}
+  });
+};
 
-export default shape
+export default shape;

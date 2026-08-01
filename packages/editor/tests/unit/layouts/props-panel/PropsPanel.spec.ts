@@ -4,7 +4,7 @@
  * Copyright (C) 2025 Tencent.
  */
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { defineComponent, h, nextTick, ref } from 'vue';
+import { defineComponent, h, nextTick } from 'vue';
 import { mount } from '@vue/test-utils';
 
 import { ENABLE_PROPS_FORM_VALIDATE } from '@editor/editorProps';
@@ -29,15 +29,6 @@ vi.mock('@editor/hooks/use-services', () => ({
   useServices: () => ({ editorService, uiService, propsService, storageService }),
 }));
 
-const showStylePanel = ref(false);
-const showStylePanelToggleButton = ref(true);
-const toggleStylePanel = vi.fn((v: boolean) => {
-  showStylePanel.value = v;
-});
-vi.mock('@editor/layouts/props-panel/use-style-panel', () => ({
-  useStylePanel: () => ({ showStylePanel, showStylePanelToggleButton, toggleStylePanel }),
-}));
-
 vi.mock('@editor/utils', async () => {
   const actual = await vi.importActual<any>('@editor/utils');
   return { ...actual, styleTabConfig: { items: [] } };
@@ -49,20 +40,6 @@ vi.mock('@editor/components/Icon.vue', () => ({
     props: ['icon'],
     setup() {
       return () => h('i', { class: 'fake-icon' });
-    },
-  }),
-}));
-
-vi.mock('@editor/components/Resizer.vue', () => ({
-  default: defineComponent({
-    name: 'FakeResizer',
-    emits: ['change'],
-    setup(_p, { emit }) {
-      return () =>
-        h('div', {
-          class: 'fake-resizer',
-          onClick: () => emit('change', { deltaX: 50 }),
-        });
     },
   }),
 }));
@@ -91,6 +68,16 @@ vi.mock('@editor/layouts/props-panel/FormPanel.vue', () => ({
             class: 'submit-with-err-btn',
             onClick: () =>
               emit('submit', { id: 'n1', style: { color: 'red' } }, { changeRecords: [] }, new Error('校验失败详情')),
+          }),
+          h('button', {
+            class: 'style-submit-with-err-btn',
+            onClick: () =>
+              emit(
+                'submit',
+                { id: 'n1', style: { color: 'red' } },
+                { changeRecords: [{ propPath: 'style.color', value: 'red' }] },
+                new Error('样式校验失败详情'),
+              ),
           }),
           // 模拟 CodeEditor 源码保存：仅传 values，无 eventData、无 error（对应 saveCode 路径）
           h('button', {
@@ -132,8 +119,6 @@ vi.mock('@tmagic/utils', async () => {
 beforeEach(() => {
   vi.clearAllMocks();
   mountedHandlers.length = 0;
-  showStylePanel.value = false;
-  showStylePanelToggleButton.value = true;
   storageService.getItem.mockReturnValue(300);
   uiService.get.mockImplementation((k: string) => {
     if (k === 'columnWidth') return { right: 400 };
@@ -210,19 +195,22 @@ describe('PropsPanel', () => {
   });
 
   test('启用 enablePropsFormValidate 时样式表单提交携带 invalidInfo(source=style)', async () => {
-    showStylePanel.value = true;
     const wrapper = mount(PropsPanel, {
       props: {} as any,
       global: { provide: { [ENABLE_PROPS_FORM_VALIDATE]: true } },
     });
     await new Promise((r) => setTimeout(r, 0));
-    // 第二个 FormPanel 为样式面板
-    const styleSubmitBtns = wrapper.findAll('.submit-with-err-btn');
-    expect(styleSubmitBtns.length).toBe(2);
-    await styleSubmitBtns[1].trigger('click');
+    await wrapper.find('.style-submit-with-err-btn').trigger('click');
 
     const options = (editorService.update.mock.calls[0] as any)[1];
     expect(options.invalidInfo.source).toBe('style');
+  });
+
+  test('样式统一在属性面板 Tab 中,不再渲染第二个表单面板', async () => {
+    const wrapper = mount(PropsPanel, { props: {} as any });
+    await nextTick();
+
+    expect(wrapper.findAll('.fake-form-panel')).toHaveLength(1);
   });
 
   test('CodeEditor 源码保存不携带 invalidInfo（未经表单校验，不应改动错误状态）', async () => {
@@ -265,26 +253,6 @@ describe('PropsPanel', () => {
     const wrapper = mount(PropsPanel, { props: {} as any });
     await wrapper.find('.form-err-btn').trigger('click');
     expect(wrapper.emitted('form-error')).toBeTruthy();
-  });
-
-  test('Resizer change 限制宽度', async () => {
-    showStylePanel.value = true;
-    const wrapper = mount(PropsPanel, { props: {} as any });
-    await nextTick();
-    await wrapper.find('.fake-resizer').trigger('click');
-    expect(storageService.setItem).toHaveBeenCalled();
-  });
-
-  test('点击 toggle 按钮 toggleStylePanel(true)', async () => {
-    showStylePanelToggleButton.value = true;
-    showStylePanel.value = false;
-    const wrapper = mount(PropsPanel, { props: {} as any });
-    await nextTick();
-    // 直接调用 toggleStylePanel 验证逻辑
-    const buttons = wrapper.findAll('.fake-btn');
-    expect(buttons.length).toBeGreaterThan(0);
-    await buttons[buttons.length - 1].trigger('click');
-    expect(toggleStylePanel).toHaveBeenCalledWith(true);
   });
 
   test('expose getFormState 返回 formState', async () => {

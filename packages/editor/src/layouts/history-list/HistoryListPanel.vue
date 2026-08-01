@@ -177,8 +177,7 @@ const extraTabs = inject<HistoryListExtraTab[]>('historyListExtraTabs', []);
 const resolveTabLabel = (tab: HistoryListExtraTab) => (typeof tab.label === 'function' ? tab.label() : tab.label);
 
 const services = useServices();
-const { editorService, dataSourceService, codeBlockService, historyService, propsService, stageOverlayService } =
-  services;
+const { editorService, dataSourceService, codeBlockService, historyService, propsService } = services;
 
 /**
  * 数据源 / 代码块功能可被业务方通过 `disabledDataSource` / `disabledCodeBlock` 禁用，
@@ -283,7 +282,6 @@ const onPageSelect = async (index: number) => {
   if (!node) return;
   await editorService.select(node);
   editorService.get('stage')?.select(targetId);
-  stageOverlayService.get('stage')?.select(targetId);
 };
 
 const onDataSourceGoto = (id: string | number, index: number) => {

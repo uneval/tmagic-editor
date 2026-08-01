@@ -4,8 +4,6 @@
       v-model="value"
       ref="editor"
       :menu="menu"
-      :renderer="'leafer'"
-      :runtime-url="undefined"
       :props-configs="propsConfigs"
       :props-values="propsValues"
       :event-method-list="eventMethodList"
@@ -16,8 +14,6 @@
       :component-group-list="componentGroupList"
       :datasource-list="datasourceList"
       :default-selected="defaultSelected"
-      :moveable-options="moveableOptions"
-      :auto-scroll-into-view="true"
       :stage-rect="stageRect"
       :layerContentMenu="contentMenuData"
       :stageContentMenu="contentMenuData"
@@ -44,6 +40,7 @@
         style="border: none"
         :height="stageRect?.height"
         :src="previewUrl"
+        @load="previewBridge.loadHandler"
       ></iframe>
     </TMagicDialog>
   </div>
@@ -65,6 +62,7 @@ import {
   TMagicEditor,
   tMagicMessage,
   uiService,
+  usePreviewBridge,
 } from '@tmagic/editor';
 
 import DeviceGroup from '../components/DeviceGroup.vue';
@@ -74,7 +72,6 @@ import { DEFAULT_THEME } from '../theme-loader';
 
 import { useEditorContentMenuData } from './composables/use-editor-content-menu-data';
 import { useEditorMenu } from './composables/use-editor-menu';
-import { useEditorMoveableOptions } from './composables/use-editor-moveable-options';
 import { useEditorRes } from './composables/use-editor-res';
 
 const { MODE, VITE_RUNTIME_PATH } = import.meta.env;
@@ -89,7 +86,6 @@ const runtimePath =
 uiService.set('propsPanelSize', 'default');
 
 const datasourceList: DatasourceTypeOption[] = [];
-// 不再用 runtimeUrl —— playground 走 leafer canvas 路径
 void runtimePath;
 
 const { propsValues, propsConfigs, eventMethodList, datasourceConfigs, datasourceValues, datasourceEventMethodList } =
@@ -125,8 +121,6 @@ const previewUrl = computed(
     `${runtimePath}/page/index.html?localPreview=1&page=${previewPageId.value ?? editor.value?.editorService.get('page')?.id}`,
 );
 
-const { moveableOptions } = useEditorMoveableOptions(editor);
-
 const save = () => {
   localStorage.setItem('magicDSL', serializeConfig(toRaw(value.value)));
   editor.value?.editorService.resetModifiedNodeId();
@@ -141,11 +135,27 @@ const themeChangeHandler = (value: string) => {
 
 const { menu, deviceGroup, iframe, previewVisible } = useEditorMenu(value, save, themeChangeHandler);
 
+const previewBridge = usePreviewBridge({
+  iframe,
+  visible: previewVisible,
+  root: value,
+  pageId: previewPageId,
+});
+
 watch(previewVisible, (visible) => {
   if (visible) {
     previewPageId.value = editor.value?.editorService.get('page')?.id;
   }
 });
+
+watch(
+  () => editor.value?.editorService.get('page')?.id,
+  (pageId) => {
+    if (previewVisible.value && pageId !== undefined) {
+      previewPageId.value = pageId;
+    }
+  },
+);
 
 editorService.usePlugin({
   beforeDoAdd: (config: MNode, parent: MContainer) => {

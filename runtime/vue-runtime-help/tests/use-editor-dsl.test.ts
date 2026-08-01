@@ -92,4 +92,19 @@ describe('useEditorDsl remove', () => {
     expect(app.page?.data.id).toBe('p1');
     expect(app.getNode('btn')).toBeUndefined();
   });
+
+  test('接收预览消息时按消息中的页面同步完整 DSL', () => {
+    const { app } = setup();
+    const dsl = createDsl();
+
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { type: 'tmagic:preview:update', dsl: `(${JSON.stringify(dsl)})`, pageId: 'p2' },
+        source: window,
+      }),
+    );
+
+    expect(app.dsl).toEqual(dsl);
+    expect(app.page?.data.id).toBe('p2');
+  });
 });

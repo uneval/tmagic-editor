@@ -1,233 +1,66 @@
-import { computed, watch } from 'vue';
+import { computed } from 'vue';
 
 import type { Id, MNode } from '@tmagic/core';
 import LeaferStage, { type LeaferEditData } from '@tmagic/leafer-stage';
-import StageCore, { GuidesType, RemoveEventData, SortEventData, UpdateEventData } from '@tmagic/stage';
-import { getIdFromEl } from '@tmagic/utils';
 
 import editorService from '@editor/services/editor';
 import uiService from '@editor/services/ui';
 import type { StageOptions } from '@editor/type';
-import { H_GUIDE_LINE_STORAGE_KEY, UI_SELECT_MODE_EVENT_NAME, V_GUIDE_LINE_STORAGE_KEY } from '@editor/utils/const';
-import { buildChangeRecords, getGuideLineFromCache } from '@editor/utils/editor';
+import { buildChangeRecords } from '@editor/utils/editor';
 
-const root = computed(() => editorService.get('root'));
-const page = computed(() => editorService.get('page'));
 const zoom = computed(() => uiService.get('zoom') || 1);
-const uiSelectMode = computed(() => uiService.get('uiSelectMode'));
-
-const getGuideLineKey = (key: string) => `${key}_${root.value?.id}_${page.value?.id}`;
 
 export const useStage = (stageOptions: StageOptions) => {
-  const leaferStage =
-    stageOptions.renderer === 'leafer' ? new LeaferStage({ zoom: stageOptions.zoom ?? zoom.value }) : null;
-  const stage = (leaferStage ??
-    new StageCore({
-      render: stageOptions.render,
-      runtimeUrl: stageOptions.runtimeUrl,
-      zoom: stageOptions.zoom ?? zoom.value,
-      autoScrollIntoView: stageOptions.autoScrollIntoView,
-      isContainer: stageOptions.isContainer,
-      canDropIn: stageOptions.canDropIn,
-      containerHighlightClassName: stageOptions.containerHighlightClassName,
-      containerHighlightDuration: stageOptions.containerHighlightDuration,
-      containerHighlightType: stageOptions.containerHighlightType,
-      containerHighlightAddOnly: stageOptions.containerHighlightAddOnly,
-      disabledDragStart: stageOptions.disabledDragStart,
-      renderType: stageOptions.renderType,
-      canSelect: (el, event, stop) => {
-        if (!stageOptions.canSelect) return true;
-
-        const elCanSelect = stageOptions.canSelect?.(el);
-        // 在组件联动过程中不能再往下选择，返回并触发 ui-select
-        if (uiSelectMode.value && elCanSelect && event.type === 'mousedown') {
-          document.dispatchEvent(new CustomEvent(UI_SELECT_MODE_EVENT_NAME, { detail: el }));
-          return stop();
-        }
-
-        return elCanSelect;
-      },
-      moveableOptions: stageOptions.moveableOptions,
-      updateDragEl: stageOptions.updateDragEl,
-      guidesOptions: stageOptions.guidesOptions,
-      disabledMultiSelect: stageOptions.disabledMultiSelect,
-      alwaysMultiSelect: stageOptions.alwaysMultiSelect,
-      disabledRule: stageOptions.disabledRule,
-      disabledFlashTip: stageOptions.disabledFlashTip,
-    })) as StageCore;
+  const stage = new LeaferStage({ zoom: stageOptions.zoom ?? zoom.value });
 
   // Leafer shape 只在独立 LeaferStage 路径按需加载。注册完成后重新提交当前
   // root，覆盖 mount / setRoot / dynamic import 三者之间可能出现的竞态。
-  let latestEditSessionId = 0;
-  if (leaferStage) {
+  {
     void import('@leafer-components').then(({ builtinShapes }) => {
-      leaferStage.shapeRegistry.registerAll({ ...builtinShapes });
+      stage.shapeRegistry.registerAll({ ...builtinShapes });
       const currentRoot = editorService.get('root');
       if (currentRoot) {
-        void leaferStage.setRoot(currentRoot as any, editorService.get('page')?.id);
+        void stage.setRoot(currentRoot as any, editorService.get('page')?.id);
       }
     });
   }
-
-  if (leaferStage) {
-    leaferStage.on('page-el-update', () => {
-      editorService.set('stageLoading', false);
-    });
-    leaferStage.on('select', (ids: Id[]) => {
-      if (ids.length === 1) {
-        void editorService.select(ids[0]);
-      } else if (ids.length > 1) {
-        void editorService.multiSelect(ids);
-      }
-    });
-    leaferStage.on('edit-end', ({ sessionId, configs }: LeaferEditData) => {
-      void (async () => {
-        latestEditSessionId = sessionId;
-        const changeRecordList = configs.map(({ style }) => buildChangeRecords(style, 'style'));
-        const targetParentId = configs.find((config) => config.parentId)?.parentId;
-        if (targetParentId !== undefined) {
-          // Leafer 只负责画布中的连续移动，DSL 父子关系由编辑器服务统一维护。
-          // stage 已将最终坐标转换为目标容器的局部坐标，moveToContainer 会把这些
-          // style 一并带入新父容器，保证跨页面/进出容器后视觉位置不跳变。
-          await editorService.moveToContainer(
-            configs.map(({ id, style }) => ({ id, style })),
-            targetParentId,
-            { historySource: 'stage' },
-          );
-        } else {
-          await editorService.update(configs as MNode[], {
-            changeRecordList,
-            historySource: 'stage',
-          });
-        }
-        if (sessionId !== latestEditSessionId) return;
-        // editorService.update 会异步驱动 stage.update 重建 shape，重建完成后
-        // 重新把原生 Editor target 指向新节点，避免松开鼠标后控制框消失。
-        setTimeout(() => {
-          if (sessionId !== latestEditSessionId) return;
-          void leaferStage.select(configs.map(({ id }) => id));
-        });
-      })();
-    });
-    return stage;
-  }
-
-  watch(
-    () => editorService.get('disabledMultiSelect'),
-    (disabledMultiSelect) => {
-      if (disabledMultiSelect) {
-        stage.disableMultiSelect();
-      } else {
-        stage.enableMultiSelect();
-      }
-    },
-  );
-
-  watch(
-    () => editorService.get('alwaysMultiSelect'),
-    (alwaysMultiSelect) => {
-      stage.setAlwaysMultiSelect(Boolean(alwaysMultiSelect));
-    },
-  );
-
-  const hGuidesCache = getGuideLineFromCache(getGuideLineKey(H_GUIDE_LINE_STORAGE_KEY));
-  const vGuidesCache = getGuideLineFromCache(getGuideLineKey(V_GUIDE_LINE_STORAGE_KEY));
-
-  stage.mask?.setGuides([hGuidesCache, vGuidesCache]);
-
-  uiService.set('hasGuides', hGuidesCache.length > 0 || vGuidesCache.length > 0);
 
   stage.on('page-el-update', () => {
     editorService.set('stageLoading', false);
   });
 
-  stage.on('select', (el: HTMLElement) => {
-    const id = getIdFromEl()(el);
-    if (`${editorService.get('node')?.id}` === id && editorService.get('nodes').length === 1) return;
-    id && editorService.select(id);
+  stage.on('select', (ids: Id[]) => {
+    if (ids.length === 1) {
+      void editorService.select(ids[0]);
+    } else if (ids.length > 1) {
+      void editorService.multiSelect(ids);
+    }
   });
 
-  stage.on('highlight', (el: HTMLElement) => {
-    const id = getIdFromEl()(el);
-    id && editorService.highlight(id);
-  });
-
-  stage.on('multi-select', (els: HTMLElement[]) => {
-    const ids = els.map((el) => getIdFromEl()(el)).filter((id) => Boolean(id)) as string[];
-    editorService.multiSelect(ids);
-  });
-
-  stage.on('update', (ev: UpdateEventData) => {
-    if (ev.parentEl) {
-      // 拖动多选元素到一个新容器：整批合成一次 moveToContainer，只产生一条历史记录
-      const pId = getIdFromEl()(ev.parentEl);
-      if (!pId) return;
-      const configs = ev.data
-        .map((data) => {
-          const id = getIdFromEl()(data.el);
-          if (!id) return null;
-          const cfg: MNode = { id, style: data.style };
-          return cfg;
-        })
-        .filter((cfg): cfg is MNode => Boolean(cfg));
-      if (configs.length > 0) {
-        editorService.moveToContainer(configs, pId);
+  let latestEditSessionId = 0;
+  stage.on('edit-end', ({ sessionId, configs }: LeaferEditData) => {
+    void (async () => {
+      latestEditSessionId = sessionId;
+      const changeRecordList = configs.map(({ style }) => buildChangeRecords(style, 'style'));
+      const targetParentId = configs.find((config) => config.parentId)?.parentId;
+      if (targetParentId !== undefined) {
+        await editorService.moveToContainer(
+          configs.map(({ id, style }) => ({ id, style })),
+          targetParentId,
+          { historySource: 'stage' },
+        );
+      } else {
+        await editorService.update(configs as MNode[], {
+          changeRecordList,
+          historySource: 'stage',
+        });
       }
-      return;
-    }
-
-    // 多选拖动 / 多选缩放：所有元素整批走一次 update，避免历史栈被切成 N 条
-    // changeRecordList 与 configs 同序，每个节点保留自己的 records；
-    // 不能把多个节点的 records 合并到同一个数组里，否则 doUpdate / nodeUpdateHandler 会把别的节点的 propPath 当成自己的。
-    const configs: MNode[] = [];
-    const changeRecordList: ReturnType<typeof buildChangeRecords>[] = [];
-    ev.data.forEach((data) => {
-      const id = getIdFromEl()(data.el);
-      if (!id) return;
-
-      const { style = {} } = data;
-      configs.push({ id, style });
-      changeRecordList.push(buildChangeRecords(style, 'style'));
-    });
-    if (configs.length === 0) return;
-
-    editorService.update(configs, { changeRecordList, historySource: 'stage' });
-  });
-
-  stage.on('sort', (ev: SortEventData) => {
-    editorService.sort(ev.src, ev.dist, { historySource: 'stage' });
-  });
-
-  stage.on('remove', (ev: RemoveEventData) => {
-    const nodes = ev.data.map(({ el }) => editorService.getNodeById(getIdFromEl()(el) || ''));
-    editorService.remove(nodes.filter((node) => Boolean(node)) as MNode[], { historySource: 'stage' });
-  });
-
-  stage.on('select-parent', () => {
-    const parent = editorService.get('parent');
-    if (!parent) throw new Error('父节点为空');
-    editorService.select(parent);
-    editorService.get('stage')?.select(parent.id);
-  });
-
-  stage.on('change-guides', (e) => {
-    uiService.set('showGuides', true);
-
-    uiService.set(
-      'hasGuides',
-      (stage.mask?.horizontalGuidelines.length ?? 0) > 0 || (stage.mask?.verticalGuidelines.length ?? 0) > 0,
-    );
-
-    if (!root.value || !page.value) return;
-
-    const storageKey = getGuideLineKey(
-      e.type === GuidesType.HORIZONTAL ? H_GUIDE_LINE_STORAGE_KEY : V_GUIDE_LINE_STORAGE_KEY,
-    );
-    if (e.guides.length) {
-      globalThis.localStorage.setItem(storageKey, JSON.stringify(e.guides));
-    } else {
-      globalThis.localStorage.removeItem(storageKey);
-    }
+      if (sessionId !== latestEditSessionId) return;
+      setTimeout(() => {
+        if (sessionId !== latestEditSessionId) return;
+        void stage.select(configs.map(({ id }) => id));
+      });
+    })();
   });
 
   return stage;

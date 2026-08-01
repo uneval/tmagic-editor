@@ -95,8 +95,6 @@ const mkServices = () => {
     collectByWorker: vi.fn(async () => undefined),
     reset: vi.fn(),
   };
-  const stageOverlayService: any = mkSvc('stageOverlay');
-
   return {
     editorService,
     historyService,
@@ -108,7 +106,6 @@ const mkServices = () => {
     keybindingService,
     dataSourceService,
     depService,
-    stageOverlayService,
     handlers,
   };
 };
@@ -233,7 +230,11 @@ describe('initServiceState', () => {
   });
 
   test('defaultSelected 调用 select', () => {
-    const props = { defaultSelected: 'n1' } as any;
+    services.editorService.getNodeById.mockReturnValue({ id: 'n1' });
+    const props = {
+      defaultSelected: 'n1',
+      modelValue: { id: 'root', type: 'root', items: [{ id: 'n1' }] },
+    } as any;
     mount(Wrap(props, services));
     expect(services.editorService.select).toHaveBeenCalledWith('n1');
   });
@@ -442,37 +443,4 @@ describe('initServiceEvents', () => {
     expect(services.dataSourceService.off).toHaveBeenCalled();
     expect(services.depService.off).toHaveBeenCalled();
   });
-
-  test('runtimeUrl 变化时重新加载 iframe', async () => {
-    const stage = {
-      reloadIframe: vi.fn(),
-      renderer: {
-        once: vi.fn((event: string, cb: any) => {
-          cb({
-            updateRootConfig: vi.fn(),
-            updatePageId: vi.fn(),
-          });
-        }),
-      },
-      select: vi.fn(),
-    };
-    services.editorService.state.stage = stage;
-    services.editorService.state.page = { id: 'p1' };
-    services.editorService.state.node = { id: 'n1' };
-
-    const hostComp = defineComponent({
-      props: { runtimeUrl: { type: String, default: '' } },
-      setup(props) {
-        initServiceEvents(props as any, emit, services as any);
-        return () => h('div');
-      },
-    });
-
-    const wrapper = mount(hostComp);
-    await wrapper.setProps({ runtimeUrl: 'http://x' });
-    await new Promise((r) => setTimeout(r, 10));
-    expect(stage.reloadIframe).toHaveBeenCalledWith('http://x');
-  });
-
-  // 因 services 中 editor.state 不是 reactive，stage watch 不会触发，跳过该测试场景
 });

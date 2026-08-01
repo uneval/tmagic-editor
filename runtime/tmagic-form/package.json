@@ -30,7 +30,8 @@
     "@tmagic/editor": ">=1.7.0",
     "element-plus": ">=2.8.0",
     "vue": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "@tmagic/stage": ">=1.7.0"
   },
   "peerDependenciesMeta": {
     "@tmagic/core": {

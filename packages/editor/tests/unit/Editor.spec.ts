@@ -4,7 +4,7 @@
  * Copyright (C) 2025 Tencent.
  */
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { defineComponent, h, nextTick } from 'vue';
+import { defineComponent, h } from 'vue';
 import { mount } from '@vue/test-utils';
 
 import Editor from '@editor/Editor.vue';
@@ -30,9 +30,6 @@ vi.mock('@editor/services/keybinding', () => ({
   default: { register: vi.fn(), registerEl: vi.fn() },
 }));
 vi.mock('@editor/services/props', () => ({ default: {} }));
-vi.mock('@editor/services/stageOverlay', () => ({
-  default: { set: vi.fn() },
-}));
 vi.mock('@editor/services/storage', () => ({ default: {}, Protocol: {} }));
 vi.mock('@editor/services/ui', () => ({ default: {} }));
 vi.mock('@editor/utils/keybinding-config', () => ({ default: {}, KeyBindingContainerKey: { STAGE: 'stage' } }));
@@ -112,27 +109,6 @@ describe('Editor', () => {
     mount(Editor, { props: {} as any });
     expect(initServiceEventsMock).toHaveBeenCalled();
     expect(initServiceStateMock).toHaveBeenCalled();
-  });
-
-  test('canDropIn 转发到 stage 含 stage-add/stage-drag 类型', async () => {
-    const canDropIn = vi.fn(() => true);
-    const stageOverlayMod = (await import('@editor/services/stageOverlay')) as any;
-    mount(Editor, { props: { canDropIn } as any });
-    await nextTick();
-    const stageOptions = stageOverlayMod.default.set.mock.calls.find((c: any[]) => c[0] === 'stageOptions')?.[1];
-    expect(stageOptions.canDropIn).toBeDefined();
-    stageOptions.canDropIn([], 't1');
-    expect(canDropIn).toHaveBeenCalledWith([], 't1', 'stage-add');
-    stageOptions.canDropIn(['s1'], 't1');
-    expect(canDropIn).toHaveBeenLastCalledWith(['s1'], 't1', 'stage-drag');
-  });
-
-  test('未传 canDropIn 时 stageOptions.canDropIn 为 undefined', async () => {
-    const stageOverlayMod = (await import('@editor/services/stageOverlay')) as any;
-    mount(Editor, { props: {} as any });
-    await nextTick();
-    const stageOptions = stageOverlayMod.default.set.mock.calls.find((c: any[]) => c[0] === 'stageOptions')?.[1];
-    expect(stageOptions.canDropIn).toBeUndefined();
   });
 
   test('PropsPanel 事件转发', async () => {

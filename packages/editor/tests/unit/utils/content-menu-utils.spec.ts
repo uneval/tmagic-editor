@@ -91,7 +91,6 @@ describe('content-menu utils', () => {
     const paste = vi.fn();
     const stage = {
       container: { getBoundingClientRect: () => ({ left: 5, top: 8 }) },
-      renderer: { getDocument: () => document },
     };
     const editorService: any = {
       get: (k: string) => {

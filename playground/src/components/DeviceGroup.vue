@@ -7,15 +7,11 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, inject, nextTick, ref } from 'vue';
+import { ref } from 'vue';
 
-import type Core from '@tmagic/core';
-import type { Services } from '@tmagic/editor';
-import { convertToNumber, TMagicRadioButton, TMagicRadioGroup } from '@tmagic/editor';
+import { TMagicRadioButton, TMagicRadioGroup } from '@tmagic/editor';
 
-import { DeviceType, uaMap } from '../const';
-
-const services = inject<Services>('services');
+import { DeviceType } from '../const';
 
 const devH: Record<DeviceType, number | string> = {
   phone: 817,
@@ -43,43 +39,15 @@ const modelValue = defineModel<{
   }),
 });
 
-const stageContainerRect = computed(() => services?.uiService.get('stageContainerRect'));
-
-const calcFontsize = () => {
-  if (!services) return;
-
-  const iframe = services.editorService.get('stage')?.renderer?.iframe;
-  if (!iframe?.contentWindow) return;
-
-  const app: Core = (iframe.contentWindow as any).appInstance;
-
-  if (!app) return;
-
-  app.setEnv(uaMap[viewerDevice.value]);
-
-  if (app.env.isWeb) {
-    const stageRect = services.uiService.get('stageRect');
-
-    const stageWidth: number = convertToNumber(stageRect.width, convertToNumber(stageContainerRect.value?.width || 0));
-
-    app.setDesignWidth(stageWidth);
-  } else {
-    app.setDesignWidth(375);
-  }
-};
-
 const viewerDevice = ref(DeviceType.Phone);
 
-const deviceSelect = async (device: DeviceType) => {
+const deviceSelect = (device: DeviceType) => {
   const width = getDeviceWidth(device);
   const height = getDeviceHeight(device);
   modelValue.value = {
     width,
     height,
   };
-
-  await nextTick();
-  calcFontsize();
 };
 
 defineExpose({

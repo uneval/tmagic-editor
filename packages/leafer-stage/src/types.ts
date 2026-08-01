@@ -5,6 +5,26 @@ export interface Point {
   clientY: number;
 }
 
+export interface WorldPoint {
+  x: number;
+  y: number;
+}
+
+export interface DropBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export type DropTargetKind = 'page' | 'container' | 'same-parent';
+
+export interface LeaferDropTarget {
+  id: Id;
+  kind: DropTargetKind;
+  bounds: DropBounds;
+}
+
 export interface UpdateData {
   config: MNode;
   parent?: MContainer;

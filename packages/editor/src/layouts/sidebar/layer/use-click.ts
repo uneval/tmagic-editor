@@ -2,7 +2,7 @@ import { computed, type ComputedRef, nextTick, type Ref, type ShallowRef } from 
 import { throttle } from 'lodash-es';
 
 import { Id, MNode } from '@tmagic/core';
-import { getElById, isPageOrFragment } from '@tmagic/utils';
+import { isPageOrFragment } from '@tmagic/utils';
 
 import type { LayerNodeStatus, Services, TreeNodeData } from '@editor/type';
 import { UI_SELECT_MODE_EVENT_NAME } from '@editor/utils/const';
@@ -11,7 +11,7 @@ import { updateStatus } from '@editor/utils/tree';
 import LayerMenu from './LayerMenu.vue';
 
 export const useClick = (
-  { editorService, stageOverlayService, uiService }: Services,
+  { editorService, uiService }: Services,
   isCtrlKeyDown: Ref<boolean>,
   nodeStatusMap: ComputedRef<Map<Id, LayerNodeStatus> | undefined>,
   menuRef: ShallowRef<InstanceType<typeof LayerMenu> | null>,
@@ -31,7 +31,6 @@ export const useClick = (
     } else {
       await editorService.select(data);
       editorService.get('stage')?.select(data.id);
-      stageOverlayService.get('stage')?.select(data.id);
     }
   };
 
@@ -64,7 +63,6 @@ export const useClick = (
 
     await editorService.multiSelect(newNodes);
     editorService.get('stage')?.multiSelect(newNodes);
-    stageOverlayService.get('stage')?.multiSelect(newNodes);
   };
 
   const throttleTime = 300;
@@ -80,20 +78,6 @@ export const useClick = (
   const highlight = (data: TreeNodeData) => {
     editorService.highlight(data);
     editorService.get('stage')?.highlight(data.id);
-    stageOverlayService.get('stage')?.highlight(data.id);
-  };
-
-  const isNodeCanSelect = async (data: TreeNodeData) => {
-    const canSelect = stageOverlayService.get('stageOptions')?.canSelect;
-    if (!canSelect) return true;
-
-    const doc = editorService.get('stage')?.renderer?.contentWindow?.document;
-    if (!doc) return true;
-
-    const el = getElById()(doc, data.id);
-    if (!el) return true;
-
-    return Boolean(await canSelect(el));
   };
 
   const nodeClickHandler = (event: MouseEvent, data: TreeNodeData): void => {
@@ -110,11 +94,7 @@ export const useClick = (
       });
     }
 
-    nextTick(async () => {
-      if (!(await isNodeCanSelect(data))) return;
-
-      select(data);
-    });
+    nextTick(() => select(data));
   };
 
   const nodeDblclickHandler = (event: MouseEvent, data: TreeNodeData): void => {

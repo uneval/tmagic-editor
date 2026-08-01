@@ -21,12 +21,10 @@ import {
   NODE_CONDS_KEY,
   NodeType,
   Target,
-  updateNode,
 } from '@tmagic/core';
 import { ChangeRecord } from '@tmagic/form';
-import LeaferStage from '@tmagic/leafer-stage';
-import StageCore from '@tmagic/stage';
-import { getDepNodeIds, getNodes, isPage, isValueIncludeDataSource } from '@tmagic/utils';
+import type LeaferStage from '@tmagic/leafer-stage';
+import { getNodes, isPage, isValueIncludeDataSource } from '@tmagic/utils';
 
 import PropsPanel from './layouts/PropsPanel.vue';
 import { isIncludeDataSource } from './utils/editor';
@@ -195,8 +193,11 @@ export const initServiceState = (
   );
 
   watch(
-    () => props.defaultSelected,
-    (defaultSelected) => defaultSelected && editorService.select(defaultSelected),
+    [() => props.defaultSelected, () => editorService.get('root')],
+    ([defaultSelected, root]) => {
+      if (!defaultSelected || !root || !editorService.getNodeById(defaultSelected, false)) return;
+      void editorService.select(defaultSelected);
+    },
     {
       immediate: true,
     },
@@ -244,40 +245,8 @@ export const initServiceEvents = (
     ((event: 'update:modelValue', value: MApp | null) => void),
   { editorService, codeBlockService, dataSourceService, depService }: Services,
 ) => {
-  let getTMagicAppPromise: Promise<TMagicCore | undefined> | null = null;
-
-  const getTMagicApp = async (): Promise<TMagicCore | undefined> => {
-    const stage = await getStage();
-    const { renderer } = stage;
-    if (!renderer) {
-      // leafer 路径:无 runtime app,直接返回 undefined
-      return void 0;
-    }
-
-    if (renderer.runtime) {
-      return renderer.runtime.getApp?.();
-    }
-
-    if (getTMagicAppPromise) {
-      return getTMagicAppPromise;
-    }
-
-    getTMagicAppPromise = new Promise<TMagicCore | undefined>((resolve) => {
-      // 设置 10s 超时
-      const timeout = globalThis.setTimeout(() => {
-        resolve(void 0);
-      }, 10000);
-
-      renderer.once('runtime-ready', () => {
-        if (timeout) {
-          globalThis.clearTimeout(timeout);
-        }
-        resolve(renderer.runtime?.getApp?.());
-      });
-    });
-
-    return getTMagicAppPromise;
-  };
+  // LeaferStage 直接渲染 DSL，不存在 iframe runtime app。
+  const getTMagicApp = async (): Promise<TMagicCore | undefined> => undefined;
 
   const updateStageNodes = (nodes: MComponent[]) => {
     for (const node of nodes) {
@@ -348,50 +317,24 @@ export const initServiceEvents = (
         return;
       }
 
-      stage.on('rerender', async () => {
-        const node = editorService.get('node');
-
-        if (!node) return;
-
-        if (!(await collectIdle([node], true, DepTargetType.DATA_SOURCE))) return;
-        updateStageNode(node);
+      stage.on('rerender', () => {
+        void (async () => {
+          const node = editorService.get('node');
+          if (!node) return;
+          if (!(await collectIdle([node], true, DepTargetType.DATA_SOURCE))) return;
+          updateStageNode(node);
+        })();
       });
     },
   );
 
-  watch(
-    () => props.runtimeUrl,
-    (url) => {
-      if (!url) {
-        return;
-      }
-
-      const stage = editorService.get('stage');
-      if (!stage) {
-        return;
-      }
-
-      stage.reloadIframe(url);
-
-      stage.renderer?.once('runtime-ready', (runtime) => {
-        runtime.updateRootConfig?.(cloneDeep(toRaw(editorService.get('root')))!);
-        const page = editorService.get('page');
-        const node = editorService.get('node');
-        page?.id && runtime?.updatePageId?.(page.id);
-        setTimeout(() => {
-          node && stage?.select(toRaw(node.id));
-        });
-      });
-    },
-  );
-
-  const getStage = (): Promise<StageCore> => {
+  const getStage = (): Promise<LeaferStage> => {
     const stage = editorService.get('stage');
     if (stage) {
       return Promise.resolve(stage);
     }
 
-    return new Promise<StageCore>((resolve) => {
+    return new Promise<LeaferStage>((resolve) => {
       const unWatch = watch(
         () => editorService.get('stage'),
         (stage) => {
@@ -408,53 +351,18 @@ export const initServiceEvents = (
 
   const updateStageDsl = async (value: MApp | null) => {
     const stage = await getStage();
-
-    // Leafer 路径由独立 LeaferStage 持有自己的 scene，不经过 iframe runtime。
-    if (stage instanceof LeaferStage) {
-      const page = editorService.get('page');
-      const node = editorService.get('node');
-      const dsl = value ? cloneDeep(toRaw(value)) : null;
-      // P0 简化:全量 setRoot,等 M4 阶段再做增量 diff
-      await stage.setRoot(dsl as MApp, page?.id);
-
-      setTimeout(() => {
-        node && stage?.select(toRaw(node.id));
-      });
-
-      if (dsl) {
-        depService.clearIdleTasks();
-        await (typeof Worker === 'undefined' ? collectIdle(dsl.items, true) : depService.collectByWorker(dsl));
-      }
-      return;
-    }
-
-    const runtime = await stage.renderer?.getRuntime();
-    const app = await getTMagicApp();
-
-    if (!app?.dataSourceManager) {
-      runtime?.updateRootConfig?.(cloneDeep(toRaw(value))!);
-    }
-
     const page = editorService.get('page');
     const node = editorService.get('node');
-    page?.id && runtime?.updatePageId?.(page.id);
+    const dsl = value ? cloneDeep(toRaw(value)) : null;
+    await stage.setRoot(dsl as MApp, page?.id);
+
     setTimeout(() => {
       node && stage?.select(toRaw(node.id));
     });
 
-    if (value) {
+    if (dsl) {
       depService.clearIdleTasks();
-
-      await (typeof Worker === 'undefined' ? collectIdle(value.items, true) : depService.collectByWorker(value));
-
-      const dsl = cloneDeep(toRaw(value));
-      if (dsl.dataSources && dsl.dataSourceDeps && app?.dataSourceManager) {
-        for (const node of getNodes(getDepNodeIds(dsl.dataSourceDeps), dsl.items)) {
-          updateNode(app.dataSourceManager.compiledNode(node), dsl);
-        }
-      }
-
-      runtime?.updateRootConfig?.(dsl);
+      await (typeof Worker === 'undefined' ? collectIdle(dsl.items, true) : depService.collectByWorker(dsl));
     }
   };
 

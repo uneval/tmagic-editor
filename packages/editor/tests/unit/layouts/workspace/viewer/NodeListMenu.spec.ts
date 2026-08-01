@@ -11,13 +11,11 @@ import NodeListMenu from '@editor/layouts/workspace/viewer/NodeListMenu.vue';
 
 const stageState: {
   handlers: Record<string, Function[]>;
-  renderer: any;
   select: ReturnType<typeof vi.fn>;
   on(name: string, cb: Function): void;
   emit(name: string, ...args: any[]): void;
 } = {
   handlers: {},
-  renderer: { getElementsFromPoint: vi.fn(() => []) },
   select: vi.fn(),
   on(name: string, cb: Function) {
     (this.handlers[name] = this.handlers[name] || []).push(cb);
@@ -115,8 +113,7 @@ describe('NodeListMenu.vue', () => {
   test('stage select 触发后 ids 数大于 3 显示按钮', async () => {
     const wrapper = mount(NodeListMenu);
     await nextTick();
-    stageState.renderer.getElementsFromPoint.mockReturnValue([{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }]);
-    stageState.emit('select', null, new MouseEvent('click'));
+    stageState.emit('select', ['a', 'b', 'c', 'd']);
     await nextTick();
     expect(wrapper.find('.m-editor-stage-float-button').exists()).toBe(true);
     expect(filterTextChangeHandler).toHaveBeenCalledWith(['a', 'b', 'c', 'd']);
@@ -125,8 +122,7 @@ describe('NodeListMenu.vue', () => {
   test('点击按钮显示 FloatingBox 并计算位置', async () => {
     const wrapper = mount(NodeListMenu, { attachTo: document.body });
     await nextTick();
-    stageState.renderer.getElementsFromPoint.mockReturnValue([{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }]);
-    stageState.emit('select', null, new MouseEvent('click'));
+    stageState.emit('select', ['a', 'b', 'c', 'd']);
     await nextTick();
     const btn = wrapper.find('.m-editor-stage-float-button');
     Object.defineProperty(btn.element, 'getBoundingClientRect', {
@@ -142,8 +138,7 @@ describe('NodeListMenu.vue', () => {
   test('Tree node-click 调用 select', async () => {
     const wrapper = mount(NodeListMenu);
     await nextTick();
-    stageState.renderer.getElementsFromPoint.mockReturnValue([{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }]);
-    stageState.emit('select', null, new MouseEvent('click'));
+    stageState.emit('select', ['a', 'b', 'c', 'd']);
     await nextTick();
     await wrapper.find('.m-editor-stage-float-button').trigger('click');
     await nextTick();

@@ -17,14 +17,12 @@ const editorService = {
   getNodeById: vi.fn((id: any) => ({ name: `name_${id}` })),
 };
 const stage = { select: vi.fn(), highlight: vi.fn(), clearHighlight: vi.fn() };
-const overlayStage = { select: vi.fn(), highlight: vi.fn(), clearHighlight: vi.fn() };
 const uiService = { set: vi.fn() };
-const stageOverlayService = { get: vi.fn(() => overlayStage) };
 
 editorService.get.mockImplementation((k: string) => (k === 'stage' ? stage : null));
 
 vi.mock('@editor/hooks/use-services', () => ({
-  useServices: () => ({ editorService, uiService, stageOverlayService }),
+  useServices: () => ({ editorService, uiService }),
 }));
 
 vi.mock('@tmagic/design', () => ({
@@ -111,7 +109,6 @@ describe('UISelect', () => {
     await buttons[1].trigger('click');
     expect(editorService.select).toHaveBeenCalledWith('n1');
     expect(stage.select).toHaveBeenCalledWith('n1');
-    expect(overlayStage.select).toHaveBeenCalledWith('n1');
   });
 
   test('highlight/unhighlight', async () => {
@@ -123,6 +120,5 @@ describe('UISelect', () => {
     await buttons[1].trigger('mouseleave');
     expect(editorService.set).toHaveBeenCalledWith('highlightNode', null);
     expect(stage.clearHighlight).toHaveBeenCalled();
-    expect(overlayStage.clearHighlight).toHaveBeenCalled();
   });
 });

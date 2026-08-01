@@ -11,6 +11,19 @@ declare global {
   }
 }
 
+const parsePreviewDsl = (dsl: unknown): MApp | undefined => {
+  if (typeof dsl !== 'string') return;
+
+  try {
+    // DSL 由同源编辑器生成，沿用 localStorage 预览使用的可执行序列化格式。
+    // eslint-disable-next-line no-eval
+    const root = eval(`(${dsl})`) as MApp;
+    return root && Array.isArray(root.items) ? root : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 export const useEditorDsl = (app: TMagicApp, renderDom: () => void) => {
   let curPageId: Id = '';
 
@@ -18,6 +31,21 @@ export const useEditorDsl = (app: TMagicApp, renderDom: () => void) => {
     app.setConfig(root, curPageId);
     renderDom();
   };
+
+  const previewMessageHandler = (event: MessageEvent) => {
+    if (event.source !== window.parent) return;
+
+    const message = event.data;
+    if (message?.type !== 'tmagic:preview:update') return;
+
+    const root = parsePreviewDsl(message.dsl);
+    if (!root) return;
+
+    curPageId = message.pageId ?? curPageId;
+    updateConfig(root);
+  };
+
+  window.addEventListener('message', previewMessageHandler);
 
   window.magic?.onRuntimeReady({
     getApp() {

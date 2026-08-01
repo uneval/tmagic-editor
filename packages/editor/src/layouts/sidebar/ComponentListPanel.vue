@@ -34,23 +34,16 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, inject, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { Grid } from '@element-plus/icons-vue';
 import serialize from 'serialize-javascript';
 
 import { TMagicCollapse, TMagicCollapseItem, TMagicScrollbar, TMagicTooltip } from '@tmagic/design';
-import { removeClassNameByClassName } from '@tmagic/utils';
 
 import MIcon from '@editor/components/Icon.vue';
 import SearchInput from '@editor/components/SearchInput.vue';
 import { useServices } from '@editor/hooks/use-services';
-import {
-  type ComponentGroup,
-  type ComponentItem,
-  ComponentListPanelSlots,
-  DragType,
-  type StageOptions,
-} from '@editor/type';
+import { type ComponentGroup, type ComponentItem, ComponentListPanelSlots, DragType } from '@editor/type';
 
 defineSlots<ComponentListPanelSlots>();
 
@@ -65,7 +58,6 @@ const filterTextChangeHandler = (v: string) => {
 };
 
 const { editorService, componentListService } = useServices();
-const stageOptions = inject<StageOptions>('stageOptions');
 
 const stage = computed(() => editorService.get('stage'));
 const list = computed<ComponentGroup[]>(() =>
@@ -123,10 +115,6 @@ const dragendHandler = () => {
   if (timeout) {
     globalThis.clearTimeout(timeout);
     timeout = undefined;
-  }
-  const doc = stage.value?.renderer?.getDocument();
-  if (doc && stageOptions?.containerHighlightClassName) {
-    removeClassNameByClassName(doc, stageOptions.containerHighlightClassName);
   }
   clientX = 0;
   clientY = 0;

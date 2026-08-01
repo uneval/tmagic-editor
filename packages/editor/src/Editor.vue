@@ -86,11 +86,7 @@
 
     <template #workspace>
       <slot name="workspace" :editorService="editorService">
-        <Workspace
-          :disabled-stage-overlay="disabledStageOverlay"
-          :stage-content-menu="stageContentMenu"
-          :custom-content-menu="customContentMenu"
-        >
+        <Workspace :stage-content-menu="stageContentMenu" :custom-content-menu="customContentMenu">
           <template #stage-top><slot name="stage-top"></slot></template>
           <template #stage><slot name="stage"></slot></template>
           <template #workspace-content><slot name="workspace-content" :editorService="editorService"></slot></template>
@@ -156,7 +152,6 @@ import eventsService from './services/events';
 import historyService from './services/history';
 import keybindingService from './services/keybinding';
 import propsService from './services/props';
-import stageOverlayService from './services/stageOverlay';
 import storageService from './services/storage';
 import uiService from './services/ui';
 import keybindingConfig from './utils/keybinding-config';
@@ -194,7 +189,6 @@ const services: Services = {
   depService,
   dataSourceService,
   keybindingService,
-  stageOverlayService,
 };
 
 initServiceEvents(props, emit, services);
@@ -203,33 +197,13 @@ keybindingService.register(keybindingConfig);
 keybindingService.registerEl('global');
 
 const stageOptions: StageOptions = {
-  renderer: props.renderer,
-  runtimeUrl: props.runtimeUrl,
-  autoScrollIntoView: props.autoScrollIntoView,
-  render: props.render,
-  moveableOptions: props.moveableOptions,
-  canSelect: props.canSelect,
-  updateDragEl: props.updateDragEl,
-  isContainer: props.isContainer,
   // sourceIds 为空表示从组件列表新增（尚无 id），否则是画布上拖动已有组件
   canDropIn: props.canDropIn
     ? (sourceIds, targetId) =>
         props.canDropIn!(sourceIds, targetId, sourceIds.length === 0 ? 'stage-add' : 'stage-drag')
     : undefined,
-  containerHighlightClassName: props.containerHighlightClassName,
-  containerHighlightDuration: props.containerHighlightDuration,
-  containerHighlightType: props.containerHighlightType,
-  containerHighlightAddOnly: props.containerHighlightAddOnly,
-  disabledDragStart: props.disabledDragStart,
-  renderType: props.renderType,
-  guidesOptions: props.guidesOptions,
-  disabledMultiSelect: props.disabledMultiSelect,
-  alwaysMultiSelect: props.alwaysMultiSelect,
-  disabledFlashTip: props.disabledFlashTip,
   beforeDblclick: props.beforeDblclick,
 };
-
-stageOverlayService.set('stageOptions', stageOptions);
 
 const propsPanelRef = ref<InstanceType<typeof FormPanel> | null>(null);
 

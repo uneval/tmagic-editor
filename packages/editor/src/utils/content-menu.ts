@@ -55,11 +55,15 @@ export const usePasteMenu = (
       const rect = menu.value.$el.getBoundingClientRect();
       const parentRect = stage?.container?.getBoundingClientRect();
       const initialLeft =
-        calcValueByFontsize(stage?.renderer?.getDocument(), (rect.left || 0) - (parentRect?.left || 0)) /
-        uiService.get('zoom');
+        calcValueByFontsize(
+          typeof document === 'undefined' ? undefined : document,
+          (rect.left || 0) - (parentRect?.left || 0),
+        ) / uiService.get('zoom');
       const initialTop =
-        calcValueByFontsize(stage?.renderer?.getDocument(), (rect.top || 0) - (parentRect?.top || 0)) /
-        uiService.get('zoom');
+        calcValueByFontsize(
+          typeof document === 'undefined' ? undefined : document,
+          (rect.top || 0) - (parentRect?.top || 0),
+        ) / uiService.get('zoom');
       editorService.paste({ left: initialLeft, top: initialTop }, undefined, { historySource });
     } else {
       editorService.paste(undefined, undefined, { historySource });

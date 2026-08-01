@@ -1,4 +1,4 @@
-import { computed, inject, nextTick, reactive, ref, watch } from 'vue';
+import { computed, inject, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue';
 
 import type TMagicApp from '@tmagic/core';
 import type { Id, MApp, MNode, MPage, MPageFragment } from '@tmagic/core';
@@ -12,6 +12,19 @@ declare global {
 }
 
 const isPageNode = (node: MNode) => node.type === NodeType.PAGE || node.type === NodeType.PAGE_FRAGMENT;
+
+const parsePreviewDsl = (dsl: unknown): MApp | undefined => {
+  if (typeof dsl !== 'string') return;
+
+  try {
+    // DSL 由同源编辑器生成，沿用 localStorage 预览使用的可执行序列化格式。
+    // eslint-disable-next-line no-eval
+    const root = eval(`(${dsl})`) as MApp;
+    return root && Array.isArray(root.items) ? root : undefined;
+  } catch {
+    return undefined;
+  }
+};
 
 let styleEl: HTMLStyleElement | null = null;
 
@@ -62,6 +75,24 @@ export const useEditorDsl = (app = inject<TMagicApp>('app'), runtimeApi: Runtime
 
     app?.setConfig(config, curPageId.value);
   };
+
+  const previewMessageHandler = (event: MessageEvent) => {
+    if (event.source !== win.parent) return;
+
+    const message = event.data;
+    if (message?.type !== 'tmagic:preview:update') return;
+
+    const root = parsePreviewDsl(message.dsl);
+    if (!root) return;
+
+    if (message.pageId !== undefined) {
+      curPageId.value = message.pageId;
+    }
+    updateRoot(root);
+  };
+
+  win.addEventListener('message', previewMessageHandler);
+  onBeforeUnmount(() => win.removeEventListener('message', previewMessageHandler));
 
   window.magic?.onRuntimeReady({
     getApp: () => app,

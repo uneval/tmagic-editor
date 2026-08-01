@@ -13,17 +13,8 @@ vi.mock('@editor/utils/tree', () => ({
   updateStatus: vi.fn(),
 }));
 
-vi.mock('@tmagic/utils', async () => {
-  const actual = await vi.importActual<any>('@tmagic/utils');
-  return {
-    ...actual,
-    getElById: () => (_doc: any, id: any) => (id === 'no-el' ? null : { id }),
-  };
-});
-
 const mkServices = () => {
   const stage = { select: vi.fn(), multiSelect: vi.fn(), highlight: vi.fn() };
-  const overlayStage = { select: vi.fn(), multiSelect: vi.fn(), highlight: vi.fn() };
   const editorState: Record<string, any> = {
     disabledMultiSelect: false,
     alwaysMultiSelect: false,
@@ -36,17 +27,10 @@ const mkServices = () => {
     multiSelect: vi.fn(),
     highlight: vi.fn(),
   };
-  const stageOverlayService = {
-    get: vi.fn((k: string) => {
-      if (k === 'stage') return overlayStage;
-      if (k === 'stageOptions') return { canSelect: undefined };
-      return null;
-    }),
-  };
   const uiService = {
     get: vi.fn(() => false),
   };
-  return { editorService, stageOverlayService, uiService, editorState, stage, overlayStage };
+  return { editorService, uiService, editorState, stage };
 };
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
@@ -173,28 +157,6 @@ describe('useClick', () => {
     await nextTick();
     await new Promise((r) => setTimeout(r, 0));
     process.off('unhandledRejection', onUnhandled);
-    expect(services.editorService.select).not.toHaveBeenCalled();
-  });
-
-  test('canSelect 函数返回 false 时不选中', async () => {
-    const services = mkServices();
-    services.stageOverlayService.get = vi.fn((k: string) => {
-      if (k === 'stageOptions') return { canSelect: () => false };
-      return { select: vi.fn(), multiSelect: vi.fn(), highlight: vi.fn() };
-    });
-    services.editorState.stage = {
-      ...services.stage,
-      renderer: { contentWindow: { document: {} } },
-    };
-    const { nodeClickHandler } = useClick(
-      services as any,
-      ref(false),
-      computed(() => new Map()),
-      shallowRef(null),
-    );
-    nodeClickHandler(mouseEv, nodeData({ id: 'a', type: 'node' }));
-    await nextTick();
-    await new Promise((r) => setTimeout(r, 0));
     expect(services.editorService.select).not.toHaveBeenCalled();
   });
 

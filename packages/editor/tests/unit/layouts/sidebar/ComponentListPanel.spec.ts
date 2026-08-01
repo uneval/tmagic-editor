@@ -85,7 +85,7 @@ beforeEach(() => {
     },
     { title: '容器', items: [{ text: '行', type: 'row' }] },
   ]);
-  editorService.get.mockReturnValue({ renderer: { getDocument: () => null }, delayedMarkContainer: vi.fn() });
+  editorService.get.mockReturnValue({ delayedMarkContainer: vi.fn() });
 });
 
 describe('ComponentListPanel', () => {
@@ -121,7 +121,7 @@ describe('ComponentListPanel', () => {
   });
 
   test('drag 事件 不同坐标时不会触发 delayedMarkContainer', async () => {
-    const stage = { renderer: { getDocument: () => null }, delayedMarkContainer: vi.fn() };
+    const stage = { delayedMarkContainer: vi.fn() };
     editorService.get.mockReturnValue(stage);
     const wrapper = mount(ComponentListPanel);
     await wrapper.find('.component-item').trigger('drag', { clientX: 1, clientY: 1 });
@@ -129,7 +129,7 @@ describe('ComponentListPanel', () => {
   });
 
   test('drag 事件 相同坐标时触发 delayedMarkContainer', async () => {
-    const stage = { renderer: { getDocument: () => null }, delayedMarkContainer: vi.fn(() => 1) };
+    const stage = { delayedMarkContainer: vi.fn(() => 1) };
     editorService.get.mockReturnValue(stage);
     const wrapper = mount(ComponentListPanel);
     const item = wrapper.find('.component-item');

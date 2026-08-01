@@ -52,7 +52,6 @@
     "@tmagic/leafer-stage": "workspace:*",
     "@tmagic/design": "workspace:*",
     "@tmagic/form": "workspace:*",
-    "@tmagic/stage": "workspace:*",
     "@tmagic/table": "workspace:*",
     "@tmagic/utils": "workspace:*",
     "buffer": "^6.0.3",

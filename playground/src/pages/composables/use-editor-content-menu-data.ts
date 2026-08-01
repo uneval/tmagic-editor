@@ -27,11 +27,9 @@ export const useEditorContentMenuData = () => {
         const rect = menu.value.$el.getBoundingClientRect();
         const parentRect = stage?.container?.getBoundingClientRect();
         const initialLeft =
-          calcValueByFontsize(stage?.renderer?.getDocument(), (rect.left || 0) - (parentRect?.left || 0)) /
-          services.uiService.get('zoom');
+          calcValueByFontsize(document, (rect.left || 0) - (parentRect?.left || 0)) / services.uiService.get('zoom');
         const initialTop =
-          calcValueByFontsize(stage?.renderer?.getDocument(), (rect.top || 0) - (parentRect?.top || 0)) /
-          services.uiService.get('zoom');
+          calcValueByFontsize(document, (rect.top || 0) - (parentRect?.top || 0)) / services.uiService.get('zoom');
         services?.editorService?.paste({ left: initialLeft, top: initialTop }, collectorOptions);
       } else {
         services?.editorService?.paste({}, collectorOptions);

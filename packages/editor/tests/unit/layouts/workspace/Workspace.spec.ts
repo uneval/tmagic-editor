@@ -20,7 +20,7 @@ vi.mock('@editor/hooks/use-services', () => ({
 vi.mock('@editor/layouts/workspace/viewer/Stage.vue', () => ({
   default: defineComponent({
     name: 'FakeStage',
-    props: ['stageOptions', 'disabledStageOverlay', 'stageContentMenu', 'customContentMenu'],
+    props: ['stageOptions', 'stageContentMenu', 'customContentMenu'],
     setup(_p, { slots }) {
       return () => h('div', { class: 'fake-stage' }, [slots['stage-top']?.()]);
     },
@@ -41,7 +41,7 @@ beforeEach(() => {
 });
 
 describe('Workspace.vue', () => {
-  test('page 存在且 stageOptions 含 render 时渲染 Stage', () => {
+  test('page 存在且 stageOptions 已注入时渲染 Stage', () => {
     editorService.get.mockReturnValue({ id: 'p1' });
     const wrapper = mount(Workspace, {
       props: {
@@ -50,7 +50,7 @@ describe('Workspace.vue', () => {
       },
       global: {
         provide: {
-          stageOptions: { render: () => ({}) },
+          stageOptions: {},
         },
       },
     });
@@ -67,7 +67,7 @@ describe('Workspace.vue', () => {
       },
       global: {
         provide: {
-          stageOptions: { render: () => ({}) },
+          stageOptions: {},
         },
       },
     });

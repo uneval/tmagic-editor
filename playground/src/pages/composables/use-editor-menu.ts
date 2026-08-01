@@ -8,7 +8,7 @@ import { type MenuBarData, tMagicMessage, tMagicMessageBox } from '@tmagic/edito
 import AdapterSelect from '../../components/AdapterSelect.vue';
 import DeviceGroup from '../../components/DeviceGroup.vue';
 import ThemeSelect from '../../components/ThemeSelect.vue';
-import { uaMap } from '../../const';
+import { DeviceType, uaMap } from '../../const';
 
 export const useEditorMenu = (
   value: Ref<MApp | undefined>,
@@ -114,7 +114,7 @@ export const useEditorMenu = (
 
           if (!iframe.value?.contentWindow || !deviceGroup.value?.viewerDevice) return;
           Object.defineProperty(iframe.value.contentWindow.navigator, 'userAgent', {
-            value: uaMap[deviceGroup.value.viewerDevice],
+            value: uaMap[deviceGroup.value.viewerDevice as DeviceType],
             writable: true,
           });
         },

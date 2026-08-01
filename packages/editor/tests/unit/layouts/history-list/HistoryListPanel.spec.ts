@@ -41,7 +41,6 @@ const { onPageDiff, onDataSourceDiff, onCodeBlockDiff, onPageRevert, onDataSourc
   }));
 
 const stageSelect = vi.fn();
-const overlayStageSelect = vi.fn();
 const editorService = {
   gotoPageStep: vi.fn(async () => 0),
   revertPageStep: vi.fn(async () => null),
@@ -50,7 +49,6 @@ const editorService = {
   // 历史面板已改为显式按当前页 id 取页面历史，'page' 返回固定 id 'p1'。
   get: vi.fn((key?: string) => (key === 'page' ? { id: 'p1' } : { select: stageSelect })),
 };
-const stageOverlayService = { get: vi.fn(() => ({ select: overlayStageSelect })) };
 const dataSourceService = {
   goto: vi.fn(() => 0),
   revert: vi.fn(async () => null),
@@ -73,7 +71,6 @@ vi.mock('@editor/hooks/use-services', () => ({
     dataSourceService,
     codeBlockService,
     propsService,
-    stageOverlayService,
   }),
 }));
 
@@ -269,7 +266,6 @@ describe('HistoryListPanel.vue', () => {
     expect(editorService.getNodeById).toHaveBeenCalledWith('n1', false);
     expect(editorService.select).toHaveBeenCalledWith({ id: 'n1' });
     expect(stageSelect).toHaveBeenCalledWith('n1');
-    expect(overlayStageSelect).toHaveBeenCalledWith('n1');
     // 选中不应触发跳转
     expect(editorService.gotoPageStep).not.toHaveBeenCalled();
   });

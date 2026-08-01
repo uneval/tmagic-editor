@@ -35,15 +35,7 @@ import type {
 } from '@tmagic/core';
 import type { FieldSize } from '@tmagic/design';
 import type { ChangeRecord, FormConfig, FormState, TableColumnConfig, TypeFunction } from '@tmagic/form';
-import type StageCore from '@tmagic/stage';
-import type {
-  CanDropIn,
-  ContainerHighlightType,
-  CustomizeMoveableOptions,
-  GuidesOptions,
-  RenderType,
-  UpdateDragEl,
-} from '@tmagic/stage';
+import type LeaferStage from '@tmagic/leafer-stage';
 
 import type { CodeBlockService } from './services/codeBlock';
 import type { ComponentListService } from './services/componentList';
@@ -54,7 +46,6 @@ import type { EventsService } from './services/events';
 import type { HistoryService } from './services/history';
 import type { KeybindingService } from './services/keybinding';
 import type { PropsService } from './services/props';
-import type { StageOverlayService } from './services/stageOverlay';
 import type { StorageService } from './services/storage';
 import type { UiService } from './services/ui';
 import type { SerializedUndoRedo, UndoRedo } from './utils/undo-redo';
@@ -168,56 +159,17 @@ export interface Services {
   depService: DepService;
   dataSourceService: DataSourceService;
   keybindingService: KeybindingService;
-  stageOverlayService: StageOverlayService;
 }
 // #endregion Services
 
 export interface StageOptions {
   /**
-   * editor 端画布渲染器选择(M2 leafer-components 引入)。
-   * 透传给 StageCoreConfig.renderer。
-   * - 'iframe':默认,沿用 iframe + runtime
-   * - 'leafer':用 leafer-ui canvas 直渲染
-   */
-  renderer?: 'iframe' | 'leafer';
-  runtimeUrl?: string;
-  autoScrollIntoView?: boolean;
-  containerHighlightClassName?: string;
-  containerHighlightDuration?: number;
-  containerHighlightType?: ContainerHighlightType;
-  /**
-   * 是否仅在新增组件（从组件列表拖入新组件）时才启用识别容器，
-   * 开启后在画布中拖动已有组件不会识别容器，默认 false
-   */
-  containerHighlightAddOnly?: boolean;
-  disabledDragStart?: boolean;
-  render?: (stage: StageCore) => HTMLDivElement | void | Promise<HTMLDivElement | void>;
-  moveableOptions?: CustomizeMoveableOptions;
-  canSelect?: (el: HTMLElement) => boolean | Promise<boolean>;
-  isContainer?: (el: HTMLElement) => boolean | Promise<boolean>;
-  /**
-   * 画布上拖入组件（包括从组件列表拖入新组件、画布上拖动已有组件）时，
-   * 对已通过 isContainer 命中的候选容器进行二次过滤；返回 false 时阻止该容器被高亮命中
+   * 画布上拖入新组件时，对命中的候选容器进行二次过滤；返回 false 时
+   * 阻止该容器作为拖入目标，返回 Id 时重定向到指定容器。
    * - 在画布上拖动已有组件时：sourceIds 为被拖动组件的 id 列表
    * - 从组件列表拖入新组件时：sourceIds 为空数组（尚无 id，仅可依据 targetId 判断）
-   * 该选项会被透传给 StageCore 的 canDropIn
    */
-  canDropIn?: CanDropIn;
-  updateDragEl?: UpdateDragEl;
-  renderType?: RenderType;
-  guidesOptions?: Partial<GuidesOptions>;
-  disabledMultiSelect?: boolean;
-  /**
-   * 始终启用多选模式（无需按住 Ctrl/Meta），默认 false。
-   * 当 `disabledMultiSelect` 为 true 时本配置失效。
-   */
-  alwaysMultiSelect?: boolean;
-  disabledRule?: boolean;
-  /**
-   * 禁用「非点击画布选中组件时（如从图层树、面包屑等外部选中），对选中区域做高亮闪烁提示」，
-   * 默认 false（即默认开启闪烁）
-   */
-  disabledFlashTip?: boolean;
+  canDropIn?: (sourceIds: Id[], targetId: Id) => Id | boolean | void;
   zoom?: number;
   /** 画布双击前的钩子函数，返回 false 则阻止默认的双击行为 */
   beforeDblclick?: (event: MouseEvent) => Promise<boolean | void> | boolean | void;
@@ -246,7 +198,7 @@ export interface StoreState {
   node: MNode | null;
   highlightNode: MNode | null;
   nodes: MNode[];
-  stage: StageCore | null;
+  stage: LeaferStage | null;
   stageLoading: boolean;
   modifiedNodeIds: Map<Id, Id>;
   /** 校验失败的节点错误信息，按节点 id 存储，供组件树标记与保存拦截读取 */
@@ -268,17 +220,6 @@ export interface PropsState {
   disabledDataSource: boolean;
   /** 禁用代码块 */
   disabledCodeBlock: boolean;
-}
-
-export interface StageOverlayState {
-  wrapDiv: HTMLDivElement;
-  sourceEl: HTMLElement | null;
-  contentEl: HTMLElement | null;
-  stage: StageCore | null;
-  stageOptions: StageOptions | null;
-  wrapWidth: number;
-  wrapHeight: number;
-  stageOverlayVisible: boolean;
 }
 
 export interface ComponentGroupState {

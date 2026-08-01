@@ -22,10 +22,8 @@ import { cloneDeep, isEmpty, isEqual, isObject, mergeWith, uniq } from 'lodash-e
 import type { Id, MApp, MContainer, MNode, MPage, MPageFragment, TargetOptions } from '@tmagic/core';
 import { NodeType } from '@tmagic/core';
 import type { ChangeRecord } from '@tmagic/form';
-import { isFixed } from '@tmagic/stage';
 import {
   getNodeInfo,
-  getNodePath,
   getValueByKeyPath,
   guid,
   isPage,
@@ -72,6 +70,7 @@ import {
   getNodeIndex,
   getPageFragmentList,
   getPageList,
+  isFixed,
   moveItemsInContainer,
   resolveSelectedNode,
   setChildrenLayout,
@@ -309,21 +308,6 @@ class Editor extends BaseService {
     this.set('nodes', node ? [node] : []);
     this.set('page', page);
     this.set('parent', parent);
-
-    // M2.5:leafer 路径下没有 runtime page 实例,跳过 runtime 'editor:select' 事件通知
-    // store 更新 + LeaferStage 内部 selection 已经够用
-    const stage = this.get('stage');
-    if (node?.id && stage?.renderer?.runtime) {
-      stage.renderer.runtime.getApp?.()?.page?.emit(
-        'editor:select',
-        {
-          node,
-          page,
-          parent,
-        },
-        getNodePath(node.id, this.get('root')?.items),
-      );
-    }
 
     this.emit('select', node);
 
@@ -619,7 +603,7 @@ class Editor extends BaseService {
         await nextTick();
         stage?.remove(removeData);
       } else {
-        // page 置空会让 Workspace 卸载 Stage 并销毁 renderer，删除通知必须在卸载前发出，
+        // page 置空会让 Workspace 卸载 Stage，删除通知必须在卸载前发出，
         // 且不能 await：runtime 未 ready 时 getRuntime 的监听会随 destroy 一起被移除，永远不会 resolve
         stage?.remove(removeData);
 
@@ -1000,7 +984,7 @@ class Editor extends BaseService {
 
   public async doPaste(config: MNode[], position: PastePosition = {}): Promise<MNode[]> {
     propsService.clearRelateId();
-    const doc = this.get('stage')?.renderer?.contentWindow?.document;
+    const doc = typeof document === 'undefined' ? undefined : document;
     const pasteConfigs = beforePaste(position, cloneDeep(config), doc);
     return pasteConfigs;
   }
@@ -1011,7 +995,7 @@ class Editor extends BaseService {
 
     const node = cloneDeep(toRaw(config));
     const layout = await this.getLayout(parent, node);
-    const doc = this.get('stage')?.renderer?.contentWindow?.document;
+    const doc = typeof document === 'undefined' ? undefined : document;
     const newStyle = calcAlignCenterStyle(node, parent, layout, doc);
 
     if (!newStyle) return config;

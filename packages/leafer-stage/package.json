@@ -25,6 +25,7 @@
   "dependencies": {
     "@leafer-in/editor": "^2.2.7",
     "@leafer-in/resize": "^2.2.7",
+    "@leafer-in/view": "2.2.7",
     "@leafer-in/viewport": "^2.2.7",
     "events": "^3.3.0",
     "leafer-ui": "^2.0.0",

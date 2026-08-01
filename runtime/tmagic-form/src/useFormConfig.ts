@@ -2,8 +2,9 @@ import { computed, nextTick, onBeforeUnmount, reactive, ref } from 'vue';
 
 import type { Id, MApp, MNode } from '@tmagic/core';
 import TMagicApp, { NodeType } from '@tmagic/core';
-import type { FormConfig, MForm, RemoveData, UpdateData } from '@tmagic/editor';
+import type { FormConfig, MForm } from '@tmagic/editor';
 import { getElById, getNodePath, initValue, replaceChildNode } from '@tmagic/editor';
+import type { RemoveData, UpdateData } from '@tmagic/stage';
 
 import { AppProps } from './types';
 

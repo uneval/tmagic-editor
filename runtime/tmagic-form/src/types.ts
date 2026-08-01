@@ -1,6 +1,7 @@
 import type { Ref } from 'vue';
 
-import type { FormConfig, MForm, StageCore } from '@tmagic/editor';
+import type { FormConfig, MForm } from '@tmagic/editor';
+import type StageCore from '@tmagic/stage';
 
 export interface AppProps {
   stage: StageCore;

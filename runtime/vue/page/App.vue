@@ -7,9 +7,10 @@ import { reactive } from 'vue';
 
 import type { Id, MPage } from '@tmagic/core';
 import { cloneDeep, DevtoolApi, getNodeInfo, replaceChildNode, setValueByKeyPath } from '@tmagic/core';
-import { useComponent, useDsl } from '@tmagic/vue-runtime-help';
+import { useComponent, useDsl, useEditorDsl } from '@tmagic/vue-runtime-help';
 
 const { pageConfig, app } = useDsl();
+useEditorDsl(app);
 const pageComponent = useComponent('page');
 
 if (import.meta.env.DEV) {

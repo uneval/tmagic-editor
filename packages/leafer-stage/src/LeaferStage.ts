@@ -28,7 +28,7 @@ import DropTargetResolver from './drag/DropTargetResolver';
 import type { DragCommit } from './drag/types';
 import { DEFAULT_ZOOM } from './const';
 import LeaferShapeRegistry from './LeaferShapeRegistry';
-import type { Point, RemoveData, UpdateData } from './types';
+import type { LeaferDropTarget, Point, RemoveData, UpdateData, WorldPoint } from './types';
 
 const DEFAULT_PAGE_WIDTH = 375;
 const DEFAULT_PAGE_HEIGHT = 667;
@@ -46,7 +46,7 @@ const parseCssLength = (value: unknown, relativeTo?: number): number | undefined
     if (Number.isFinite(percent) && relativeTo !== undefined) return (percent / 100) * relativeTo;
     return undefined;
   }
-  if (value == null || value === '') return undefined;
+  if (value === null || value === undefined || value === '') return undefined;
   if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
   if (typeof value !== 'string') return undefined;
   const normalized = value.trim().replace(/(px|pt|rpx)$/i, '');
@@ -229,6 +229,7 @@ export default class LeaferStage extends EventEmitter {
   private readonly beginDrag = () => this.dragSession.begin();
   private readonly cancelDrag = () => this.dragSession.cancel();
   private readonly finishDrag = () => this.dragSession.finish();
+  private readonly handleDoubleClick = (event: MouseEvent) => this.emit('dblclick', event);
 
   constructor(config: { zoom?: number; shapeRegistry?: LeaferShapeRegistry }) {
     super();
@@ -250,11 +251,12 @@ export default class LeaferStage extends EventEmitter {
     // 这里仍然保持 lazy import,避免 vitest/node 环境加载浏览器插件。
     await import('@leafer-in/editor');
     await import('@leafer-in/resize');
+    await import('@leafer-in/view');
     await import('@leafer-in/viewport');
-    const { Snap: SnapConstructor } = await import('leafer-x-easy-snap');
-    const { App: AppConstructor, Group: GroupConstructor, Rect: RectConstructor } = await import('leafer-ui');
-    this.rectConstructor = RectConstructor;
-    this.app = new AppConstructor({
+    const { Snap: snapConstructor } = await import('leafer-x-easy-snap');
+    const { App: appConstructor, Group: groupConstructor, Rect: rectConstructor } = await import('leafer-ui');
+    this.rectConstructor = rectConstructor;
+    this.app = new (appConstructor as any)({
       view: el,
       fill: '#f5f5f5',
       editor: {},
@@ -263,13 +265,15 @@ export default class LeaferStage extends EventEmitter {
       tree: { type: 'design' },
     });
     this.leafer = this.app.tree;
+    this.leafer?.zoom(this.zoom);
     this.editor = this.app.editor;
-    this.rootGroup = new GroupConstructor({ hitChildren: true });
-    this.leafer!.add(this.rootGroup);
+    const rootGroup = new (groupConstructor as any)({ hitChildren: true });
+    this.rootGroup = rootGroup;
+    this.leafer!.add(rootGroup);
     // Leafer 没有官方内置的对齐辅助线。使用社区插件提供移动吸附和
     // 辅助线，且把它限制在当前节点的父容器内，避免页面 A 的子节点吸附到
     // 页面 B 的内部节点。页面本身则通过 rootGroup 与其它页面对齐。
-    this.snap = new SnapConstructor(this.app, {
+    const snap = new (snapConstructor as any)(this.app, {
       attachEvents: ['move'],
       showLine: true,
       showLinePoints: false,
@@ -277,9 +281,10 @@ export default class LeaferStage extends EventEmitter {
       showEqualSpacingBoxes: false,
       snapSize: 5,
       lineColor: '#5b8ff9',
-      parentContainer: this.rootGroup,
+      parentContainer: rootGroup,
     });
-    this.snap.enable(true);
+    this.snap = snap;
+    snap.enable(true);
     this.app.on('pointer.move', this.capturePointerPoint);
     this.app.on('pointer.up', this.capturePointerPoint);
     this.editor?.on('editor.select', (event: { editor?: { list?: any[] } }) => {
@@ -305,6 +310,7 @@ export default class LeaferStage extends EventEmitter {
     el.addEventListener('pointercancel', this.cancelDrag, true);
     el.addEventListener('pointerup', this.finishDrag, true);
     el.addEventListener('mouseup', this.finishDrag, true);
+    el.addEventListener('dblclick', this.handleDoubleClick, true);
     // 如果 mount 之前 initService 已经推过 DSL,这里补上
     if (this.pendingRoot) {
       const pending = this.pendingRoot;
@@ -328,6 +334,7 @@ export default class LeaferStage extends EventEmitter {
       this.container.removeEventListener('pointercancel', this.cancelDrag, true);
       this.container.removeEventListener('pointerup', this.finishDrag, true);
       this.container.removeEventListener('mouseup', this.finishDrag, true);
+      this.container.removeEventListener('dblclick', this.handleDoubleClick, true);
     }
     this.leafer = null;
     this.rootGroup = null;
@@ -372,7 +379,7 @@ export default class LeaferStage extends EventEmitter {
     // 自己的 fill 经常不渲染;改用 Group 装一个背景 Rect(画 page 底色)再装 items。
     // 之前用 Rect,Rect 没有 .add() 装不下 items;
     // 之前用 Frame,Frame fill 不渲染,page 背景变白。
-    const { Frame: FrameConstructor, Rect: RectConstructor } = await import('leafer-ui');
+    const { Frame: frameConstructor, Rect: rectConstructor } = await import('leafer-ui');
     const pageItems = (root.items ?? []).filter((item) => {
       if (item.type !== 'page' && item.type !== 'page-fragment') return false;
       return true;
@@ -399,15 +406,13 @@ export default class LeaferStage extends EventEmitter {
       const autoY = Math.max(PAGE_PADDING, (viewportHeight - h) / 2);
       const sourceX = parseCssLength(pageStyle?.left);
       const sourceY = parseCssLength(pageStyle?.top);
-      const pageX =
-        this.manualPageIds.has(page.id) && sourceX !== undefined ? sourceX : sourceX && sourceX !== 0 ? sourceX : autoX;
-      const pageY =
-        this.manualPageIds.has(page.id) && sourceY !== undefined ? sourceY : sourceY && sourceY !== 0 ? sourceY : autoY;
+      const pageX = this.getPagePosition(page.id, sourceX, autoX);
+      const pageY = this.getPagePosition(page.id, sourceY, autoY);
       const fill = pageBackgroundFill(pageStyle);
 
       // Frame 提供页面固定宽高; overflow=show 保证拖动中的子节点不会被页面裁剪。
       // Group 的宽高随子节点变化,不能作为页面的编辑边界。
-      const pageGroup = new FrameConstructor({
+      const pageGroup = new (frameConstructor as any)({
         x: pageX,
         y: pageY,
         width: w,
@@ -422,7 +427,7 @@ export default class LeaferStage extends EventEmitter {
       (pageGroup as any).id = page.id;
       (pageGroup as any).editable = true;
       (pageGroup as any).hitChildren = true;
-      const bg = new RectConstructor({ x: 0, y: 0, width: w, height: h, fill, ...pageVisualProps(pageStyle) });
+      const bg = new (rectConstructor as any)({ x: 0, y: 0, width: w, height: h, fill, ...pageVisualProps(pageStyle) });
       (pageGroup as { add: (n: unknown) => void }).add(bg);
       this.pageFrames.set(page.id, pageGroup);
       this.nodeMap.set(page.id, pageGroup);
@@ -440,9 +445,51 @@ export default class LeaferStage extends EventEmitter {
 
   public setZoom(zoom: number = DEFAULT_ZOOM): void {
     this.zoom = zoom;
-    // Stage.vue 已经对整个 stage container 做 CSS scale。Leafer 只保留
-    // 逻辑缩放值，不能再 scaleOfWorld，否则位置离原点越远误差越大，
-    // 画布和右上角预览会出现双倍缩放后的尺寸/偏移差异。
+    this.leafer?.zoom(zoom);
+  }
+
+  public getZoom(): number {
+    return this.zoom;
+  }
+
+  /** 把浏览器事件坐标转换为 Leafer 世界坐标。 */
+  public getWorldPoint(point: Point): WorldPoint | null {
+    const world = this.app?.getWorldPointByClient?.({ x: point.clientX, y: point.clientY });
+    if (!world || !Number.isFinite(world.x) || !Number.isFinite(world.y)) return null;
+    return { x: world.x, y: world.y };
+  }
+
+  /** 把浏览器事件坐标转换为指定 DSL 容器的局部坐标。 */
+  public getLocalPoint(point: Point, parentId: Id): WorldPoint | null {
+    const world = this.getWorldPoint(point);
+    const parent = this.nodeMap.get(parentId) as any;
+    if (!world || !parent) return null;
+
+    const local = parent.getLocalPoint?.(world);
+    if (local && Number.isFinite(local.x) && Number.isFinite(local.y)) {
+      return { x: local.x, y: local.y };
+    }
+
+    const bounds = this.pageLayoutBounds.get(parentId);
+    if (!bounds) return null;
+    return { x: world.x - bounds.x, y: world.y - bounds.y };
+  }
+
+  /** 解析组件列表拖入或编辑器拖动的目标。 */
+  public resolveDropTarget(point: Point, sourceIds: Id[]): LeaferDropTarget | null {
+    const world = this.getWorldPoint(point);
+    if (!world) return null;
+    const target = this.dropTargetResolver.resolve(world, sourceIds);
+    if (!target) return null;
+    return { id: target.id, kind: target.kind, bounds: target.bounds };
+  }
+
+  /** 返回事件点下按 Leafer 命中路径归一化后的 DSL 节点。 */
+  public getNodeIdsAtPoint(point: Point): Id[] {
+    const world = this.getWorldPoint(point);
+    const path = world ? this.rootGroup?.pick?.(world, { through: true })?.path : null;
+    const nodes = Array.from((path?.list ?? path ?? []) as any[]);
+    return this.normalizeSelection(nodes).ids;
   }
 
   public async add(data: UpdateData): Promise<void> {
@@ -476,6 +523,13 @@ export default class LeaferStage extends EventEmitter {
       if (top !== undefined) page.y = top;
       if (width !== undefined) page.width = width;
       if (height !== undefined) page.height = height;
+      const bounds = this.pageLayoutBounds.get(data.config.id);
+      this.pageLayoutBounds.set(data.config.id, {
+        x: left ?? bounds?.x ?? page.x ?? 0,
+        y: top ?? bounds?.y ?? page.y ?? 0,
+        width: width ?? bounds?.width ?? page.width ?? DEFAULT_PAGE_WIDTH,
+        height: height ?? bounds?.height ?? page.height ?? DEFAULT_PAGE_HEIGHT,
+      });
       const background = page.children?.[0];
       applyPageVisualProps(page, style);
       if (background) {
@@ -586,7 +640,6 @@ export default class LeaferStage extends EventEmitter {
         return { id, style };
       })
       .filter((config): config is { id: Id; style: Record<string, unknown>; parentId?: Id } => Boolean(config));
-    this.manualPageIds.clear();
     if (configs.length) {
       const parentId = configs.find((config) => config.parentId)?.parentId;
       this.emit('edit-end', { sessionId, configs, parentId });
@@ -702,6 +755,12 @@ export default class LeaferStage extends EventEmitter {
 
   private getNodeSize(node: any): { width?: number; height?: number } {
     return { width: parseCssLength(node?.width), height: parseCssLength(node?.height) };
+  }
+
+  private getPagePosition(id: Id, source: number | undefined, automatic: number): number {
+    if (this.manualPageIds.has(id) && source !== undefined) return source;
+    if (source !== undefined && source !== 0) return source;
+    return automatic;
   }
 
   private resolveRelativeLengths(config: MNode, parentSize?: { width?: number; height?: number }): MNode {

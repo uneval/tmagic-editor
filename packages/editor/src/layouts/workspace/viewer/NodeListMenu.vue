@@ -27,7 +27,6 @@ import { computed, nextTick, ref, useTemplateRef, watch } from 'vue';
 
 import type { MNode } from '@tmagic/core';
 import { TMagicTooltip } from '@tmagic/design';
-import { getIdFromEl } from '@tmagic/utils';
 
 import FloatingBox from '@editor/components/FloatingBox.vue';
 import Tree from '@editor/components/Tree.vue';
@@ -64,12 +63,8 @@ const unWatch = watch(
 
     nextTick(() => unWatch());
 
-    stage.on('select', (el: HTMLElement, event: MouseEvent) => {
-      const els = stage.renderer?.getElementsFromPoint(event) || [];
-      const ids = els.map((el) => getIdFromEl()(el)).filter((id) => Boolean(id)) as string[];
-
+    stage.on('select', (ids: string[]) => {
       buttonVisible.value = ids.length > 3;
-
       filterTextChangeHandler(ids);
     });
   },

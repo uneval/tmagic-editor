@@ -1120,23 +1120,12 @@ describe('补充：fixNodeLeft / fixNodePosition / serializeConfig', () => {
   });
 
   test('fixNodePosition - 设置 left 且无 right 时修正 left', () => {
-    const doc = document.implementation.createHTMLDocument();
-    const parent = doc.createElement('div');
-    parent.dataset.tmagicId = 'p3';
-    Object.defineProperty(parent, 'offsetWidth', { value: 100 });
-    const child = doc.createElement('div');
-    child.dataset.tmagicId = 'a3';
-    Object.defineProperty(child, 'offsetWidth', { value: 80 });
-    parent.appendChild(child);
-    doc.body.appendChild(parent);
-
-    const stage = { renderer: { contentWindow: { document: doc } } } as any;
     const result = editor.fixNodePosition(
       { id: 'a3', style: { position: 'absolute', left: 50 } } as any,
       { id: 'p3', items: [] } as any,
-      stage,
+      null,
     );
-    expect(result?.left).toBe(20);
+    expect(result?.left).toBe(50);
   });
 
   test('serializeConfig - 输出去掉了 key 引号', () => {

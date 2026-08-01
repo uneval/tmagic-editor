@@ -71,15 +71,12 @@ describe('operator.beforePaste', () => {
     expect(result[1].style.top).toBe(230);
   });
 
-  test('粘贴时选中容器：将坐标换算到容器内', () => {
+  test('LeaferStage 粘贴时保留世界坐标', () => {
     editorState.node = { id: 'container', items: [] };
-    editorState.stage = {
-      renderer: { contentWindow: { document: {} } },
-    };
     const config = [{ id: 'n1', type: 'text', style: { left: 10, top: 20 } }] as any;
     const result = beforePaste({ left: 100, top: 200 } as any, config);
-    expect(result[0].style.left).toBe(95);
-    expect(result[0].style.top).toBe(193);
+    expect(result[0].style.left).toBe(100);
+    expect(result[0].style.top).toBe(200);
   });
 
   test('页面节点粘贴时，会通过 generatePageNameByApp 重命名', () => {
@@ -132,10 +129,9 @@ describe('operator.getPositionInContainer', () => {
     expect(pos).toEqual({ left: 10, top: 20 });
   });
 
-  test('stage 中找到元素后做偏移修正', () => {
-    editorState.stage = { renderer: { contentWindow: { document: {} } } };
+  test('LeaferStage 不再通过 DOM 元素修正坐标', () => {
     const pos = getPositionInContainer({ left: 100, top: 200 }, 'id');
-    expect(pos).toEqual({ left: 95, top: 193 });
+    expect(pos).toEqual({ left: 100, top: 200 });
   });
 
   test('未传 position 时使用默认 0', () => {

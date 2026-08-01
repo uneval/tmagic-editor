@@ -22,8 +22,7 @@ import serialize from 'serialize-javascript';
 
 import type { Id, MApp, MContainer, MNode, MPage, MPageFragment, TargetOptions } from '@tmagic/core';
 import { NODE_CONDS_KEY, NodeType, Target, Watcher } from '@tmagic/core';
-import type StageCore from '@tmagic/stage';
-import { isFixed } from '@tmagic/stage';
+import type LeaferStage from '@tmagic/leafer-stage';
 import {
   calcValueByFontsize,
   getElById,
@@ -37,6 +36,8 @@ import {
 
 import type { EditorNodeInfo, StepValue } from '@editor/type';
 import { LayerOffset, Layout } from '@editor/type';
+
+export const isFixed = (style: { position?: string }): boolean => style.position === 'fixed';
 
 export const COPY_STORAGE_KEY = '$MagicEditorCopyData';
 export const COPY_CODE_STORAGE_KEY = '$MagicEditorCopyCode';
@@ -106,10 +107,10 @@ export const getRelativeStyle = (style: Record<string, any> = {}): Record<string
   left: 0,
 });
 
-const getMiddleTop = (node: MNode, parentNode: MNode, stage: StageCore | null) => {
+const getMiddleTop = (node: MNode, parentNode: MNode, _stage: LeaferStage | null) => {
   let height = node.style?.height || 0;
 
-  if (!stage || typeof node.style?.top !== 'undefined' || !parentNode.style) return node.style?.top;
+  if (!_stage || typeof node.style?.top !== 'undefined' || !parentNode.style) return node.style?.top;
 
   if (!isNumber(height)) {
     height = 0;
@@ -117,16 +118,7 @@ const getMiddleTop = (node: MNode, parentNode: MNode, stage: StageCore | null) =
 
   const { height: parentHeight } = parentNode.style;
 
-  let wrapperHeightDeal = parentHeight;
-  if (stage.mask && stage.renderer) {
-    // wrapperHeight 是未 calcValue的高度, 所以要将其calcValueByFontsize一下, 否则在pad or pc端计算的结果有误
-    const { scrollTop = 0, wrapperHeight } = stage.mask;
-    wrapperHeightDeal = calcValueByFontsize(stage.renderer.getDocument()!, wrapperHeight);
-    const scrollTopDeal = calcValueByFontsize(stage.renderer.getDocument()!, scrollTop);
-    if (isPage(parentNode)) {
-      return (wrapperHeightDeal - height) / 2 + scrollTopDeal;
-    }
-  }
+  const wrapperHeightDeal = parentHeight;
 
   // 如果容器的元素高度大于当前视口高度的2倍, 添加的元素居中位置也会看不见, 所以要取最小值计算
   return (Math.min(parentHeight, wrapperHeightDeal) - height) / 2;
@@ -370,7 +362,7 @@ export const fixNodeLeft = (config: MNode, parent: MContainer, doc?: Document) =
   return config.style.left;
 };
 
-export const fixNodePosition = (config: MNode, parent: MContainer, stage: StageCore | null) => {
+export const fixNodePosition = (config: MNode, parent: MContainer, _stage: LeaferStage | null) => {
   if (config.style?.position !== 'absolute') {
     return config.style;
   }
@@ -379,11 +371,11 @@ export const fixNodePosition = (config: MNode, parent: MContainer, stage: StageC
   const baseStyle = config.style || {};
 
   if (!('right' in baseStyle)) {
-    style.left = fixNodeLeft(config, parent, stage?.renderer?.contentWindow?.document);
+    style.left = fixNodeLeft(config, parent);
   }
 
   if (!('top' in baseStyle) && !('bottom' in baseStyle)) {
-    style.top = getMiddleTop(config, parent, stage);
+    style.top = getMiddleTop(config, parent, _stage);
   }
 
   return style;

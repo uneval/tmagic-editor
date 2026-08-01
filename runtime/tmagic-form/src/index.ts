@@ -1,8 +1,9 @@
 import { createApp, onBeforeUnmount, Plugin } from 'vue';
 import cssStyle from 'element-plus/dist/index.css?raw';
 
-import type { FormConfig, StageCore } from '@tmagic/editor';
+import type { FormConfig } from '@tmagic/editor';
 import { editorService, formPlugin, injectStyle, Layout, propsService, uiService } from '@tmagic/editor';
+import type StageCore from '@tmagic/stage';
 
 import commonConfig from './form-config/common';
 import App from './App.vue';

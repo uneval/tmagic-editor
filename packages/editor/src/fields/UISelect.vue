@@ -61,7 +61,7 @@ const props = defineProps<FieldProps<UISelectConfig>>();
 
 const emit = defineEmits(['change']);
 
-const { editorService, uiService, stageOverlayService } = useServices();
+const { editorService, uiService } = useServices();
 const mForm = inject<FormState>('mForm');
 
 const val = computed(() => props.model[props.name]);
@@ -112,18 +112,15 @@ const deleteHandler = () => {
 const selectNode = async (id: Id) => {
   await editorService.select(id);
   editorService.get('stage')?.select(id);
-  stageOverlayService.get('stage')?.select(id);
 };
 
 const highlight = throttle((id: Id) => {
   editorService.highlight(id);
   editorService.get('stage')?.highlight(id);
-  stageOverlayService.get('stage')?.highlight(id);
 }, 150);
 
 const unhighlight = () => {
   editorService.set('highlightNode', null);
   editorService.get('stage')?.clearHighlight();
-  stageOverlayService.get('stage')?.clearHighlight();
 };
 </script>

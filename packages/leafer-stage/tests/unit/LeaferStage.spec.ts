@@ -103,13 +103,19 @@ describe('LeaferStage > constructor', () => {
 
   it('setZoom 不重复缩放 Leafer 世界坐标', () => {
     const r = new LeaferStage({});
-    const scaleOfWorld = vi.fn();
-    (r as any).leafer = { scaleOfWorld };
+    const zoom = vi.fn();
+    (r as any).leafer = { zoom };
 
     r.setZoom(0.5);
 
     expect((r as any).zoom).toBe(0.5);
-    expect(scaleOfWorld).not.toHaveBeenCalled();
+    expect(zoom).toHaveBeenCalledWith(0.5);
+  });
+
+  it('通过 Leafer 的绝对 zoom API 暴露当前视口缩放', () => {
+    const r = new LeaferStage({ zoom: 0.75 });
+
+    expect(r.getZoom()).toBe(0.75);
   });
 
   it('kind 标记为 leafer', () => {
@@ -252,6 +258,45 @@ describe('LeaferStage > constructor', () => {
     expect(background.rotation).toBe(30);
     expect(background.scaleX).toBe(1.5);
     expect(background.scaleY).toBe(1.5);
+    expect((r as any).pageLayoutBounds.get('page-1')).toEqual({ x: 12, y: 24, width: 375, height: 667 });
+  });
+
+  it('用客户端坐标解析拖入目标,不把 DOM 查询泄漏给编辑器', () => {
+    const r = new LeaferStage({});
+    const page = new FakeNode() as any;
+    page.id = 'page-1';
+    const bounds = { x: 10, y: 20, width: 375, height: 667 };
+
+    (r as any).app = {
+      getWorldPointByClient: vi.fn(() => ({ x: 40, y: 60 })),
+    };
+    (r as any).rootGroup = {
+      pick: vi.fn(() => ({ path: { list: [page] } })),
+    };
+    (r as any).pageFrames.set('page-1', page);
+    (r as any).pageLayoutBounds.set('page-1', bounds);
+
+    expect(r.resolveDropTarget({ clientX: 400, clientY: 500 }, [])).toEqual({
+      id: 'page-1',
+      kind: 'page',
+      bounds,
+    });
+    expect((r as any).app.getWorldPointByClient).toHaveBeenCalledWith({ x: 400, y: 500 });
+  });
+
+  it('将客户端坐标转换为目标容器的局部坐标', () => {
+    const r = new LeaferStage({});
+    const parent = {
+      getLocalPoint: vi.fn(() => ({ x: 12, y: 18 })),
+    };
+
+    (r as any).app = {
+      getWorldPointByClient: vi.fn(() => ({ x: 40, y: 60 })),
+    };
+    (r as any).nodeMap.set('page-1', parent);
+
+    expect(r.getLocalPoint({ clientX: 400, clientY: 500 }, 'page-1')).toEqual({ x: 12, y: 18 });
+    expect(parent.getLocalPoint).toHaveBeenCalledWith({ x: 40, y: 60 });
   });
 
   it('解析子节点的 right/bottom 和 margin 定位', () => {

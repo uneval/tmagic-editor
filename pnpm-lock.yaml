@@ -340,9 +340,6 @@ importers:
       '@tmagic/leafer-stage':
         specifier: workspace:*
         version: link:../leafer-stage
-      '@tmagic/stage':
-        specifier: workspace:*
-        version: link:../stage
       '@tmagic/table':
         specifier: workspace:*
         version: link:../table
@@ -482,6 +479,9 @@ importers:
         version: 2.2.7(@leafer-in/interface@2.2.7(@leafer-ui/interface@2.2.7)(@leafer/interface@2.2.7))(@leafer-in/resize@2.2.7(@leafer-in/interface@2.2.7(@leafer-ui/interface@2.2.7)(@leafer/interface@2.2.7))(@leafer-ui/draw@2.2.7)(@leafer-ui/interface@2.2.7))(@leafer-ui/core@2.2.7)(@leafer-ui/draw@2.2.7)(@leafer-ui/interface@2.2.7)
       '@leafer-in/resize':
         specifier: ^2.2.7
+        version: 2.2.7(@leafer-in/interface@2.2.7(@leafer-ui/interface@2.2.7)(@leafer/interface@2.2.7))(@leafer-ui/draw@2.2.7)(@leafer-ui/interface@2.2.7)
+      '@leafer-in/view':
+        specifier: 2.2.7
         version: 2.2.7(@leafer-in/interface@2.2.7(@leafer-ui/interface@2.2.7)(@leafer/interface@2.2.7))(@leafer-ui/draw@2.2.7)(@leafer-ui/interface@2.2.7)
       '@leafer-in/viewport':
         specifier: ^2.2.7
@@ -1066,6 +1066,9 @@ importers:
       '@tmagic/editor':
         specifier: '>=1.7.0'
         version: 1.7.2(@tmagic/core@1.7.2(typescript@6.0.3))(@tmagic/form-schema@1.7.2(typescript@6.0.3))(@tmagic/schema@1.7.2(typescript@6.0.3))(monaco-editor@0.55.1)(typescript@6.0.3)(vue@3.5.40(typescript@6.0.3))
+      '@tmagic/stage':
+        specifier: '>=1.7.0'
+        version: 1.7.2(@tmagic/core@1.7.2(typescript@6.0.3))(typescript@6.0.3)
       element-plus:
         specifier: ^2.14.3
         version: 2.14.3(vue@3.5.40(typescript@6.0.3))
@@ -2659,6 +2662,13 @@ packages:
 
   '@leafer-in/resize@2.2.7':
     resolution: {integrity: sha512-ShRrbM4BcppmORtj6016Myn1fa1xaev4DNKOrIvs1GDDzWkZO3OIWcOKw+ah8HGvn13mWen/Xm/VggwJ3oh7EQ==}
+    peerDependencies:
+      '@leafer-in/interface': ^2.2.7
+      '@leafer-ui/draw': ^2.2.7
+      '@leafer-ui/interface': ^2.2.7
+
+  '@leafer-in/view@2.2.7':
+    resolution: {integrity: sha512-jvyO/z9/vX4b2w0IGY/sSay/gppoQ6cRCpsBMIS5tOK5kcJN8jUsEBPDEes0yWekb9GwIvq7K7hCBcA12+2JFQ==}
     peerDependencies:
       '@leafer-in/interface': ^2.2.7
       '@leafer-ui/draw': ^2.2.7
@@ -8671,6 +8681,12 @@ snapshots:
       '@leafer/interface': 2.2.7
 
   '@leafer-in/resize@2.2.7(@leafer-in/interface@2.2.7(@leafer-ui/interface@2.2.7)(@leafer/interface@2.2.7))(@leafer-ui/draw@2.2.7)(@leafer-ui/interface@2.2.7)':
+    dependencies:
+      '@leafer-in/interface': 2.2.7(@leafer-ui/interface@2.2.7)(@leafer/interface@2.2.7)
+      '@leafer-ui/draw': 2.2.7
+      '@leafer-ui/interface': 2.2.7
+
+  '@leafer-in/view@2.2.7(@leafer-in/interface@2.2.7(@leafer-ui/interface@2.2.7)(@leafer/interface@2.2.7))(@leafer-ui/draw@2.2.7)(@leafer-ui/interface@2.2.7)':
     dependencies:
       '@leafer-in/interface': 2.2.7(@leafer-ui/interface@2.2.7)(@leafer/interface@2.2.7)
       '@leafer-ui/draw': 2.2.7

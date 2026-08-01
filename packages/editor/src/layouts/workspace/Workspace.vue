@@ -4,9 +4,8 @@
 
     <slot name="stage">
       <MagicStage
-        v-if="page && isStageMountable(stageOptions)"
+        v-if="page"
         :stage-options="stageOptions!"
-        :disabled-stage-overlay="disabledStageOverlay"
         :stage-content-menu="stageContentMenu"
         :custom-content-menu="customContentMenu"
       >
@@ -23,7 +22,6 @@ import { computed, inject } from 'vue';
 
 import { useServices } from '@editor/hooks/use-services';
 import type { CustomContentMenuFunction, MenuButton, MenuComponent, StageOptions, WorkspaceSlots } from '@editor/type';
-import { isStageMountable } from '@editor/utils/stage';
 
 import MagicStage from './viewer/Stage.vue';
 import Breadcrumb from './Breadcrumb.vue';
@@ -34,16 +32,10 @@ defineOptions({
   name: 'MEditorWorkspace',
 });
 
-withDefaults(
-  defineProps<{
-    stageContentMenu: (MenuButton | MenuComponent)[];
-    disabledStageOverlay?: boolean;
-    customContentMenu: CustomContentMenuFunction;
-  }>(),
-  {
-    disabledStageOverlay: false,
-  },
-);
+defineProps<{
+  stageContentMenu: (MenuButton | MenuComponent)[];
+  customContentMenu: CustomContentMenuFunction;
+}>();
 
 const stageOptions = inject<StageOptions>('stageOptions');
 

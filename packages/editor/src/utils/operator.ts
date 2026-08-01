@@ -3,7 +3,7 @@ import { isEmpty } from 'lodash-es';
 
 import type { Id, MContainer, MNode } from '@tmagic/core';
 import { NodeType } from '@tmagic/core';
-import { calcValueByFontsize, getElById, isPage, isPageOrFragment } from '@tmagic/utils';
+import { calcValueByFontsize, isPage, isPageOrFragment } from '@tmagic/utils';
 
 import editorService from '@editor/services/editor';
 import propsService from '@editor/services/props';
@@ -73,15 +73,11 @@ export const beforePaste = (position: PastePosition, config: MNode[], doc?: Docu
  * @returns PastePosition 转换后的坐标
  */
 export const getPositionInContainer = (position: PastePosition = {}, id: Id, doc?: Document) => {
-  let { left = 0, top = 0 } = position;
-  const stageDoc = editorService.get('stage')?.renderer?.contentWindow?.document;
-  const parentEl = stageDoc && getElById()(stageDoc, `${id}`);
-  const parentElRect = parentEl?.getBoundingClientRect();
-  left = left - calcValueByFontsize(doc, parentElRect?.left || 0);
-  top = top - calcValueByFontsize(doc, parentElRect?.top || 0);
+  void id;
+  const { left = 0, top = 0 } = position;
   return {
-    left,
-    top,
+    left: calcValueByFontsize(doc, left),
+    top: calcValueByFontsize(doc, top),
   };
 };
 

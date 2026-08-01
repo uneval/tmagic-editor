@@ -2,15 +2,6 @@ import type { InjectionKey } from 'vue';
 
 import type { DataSourceSchema, EventOption, Id, MApp, MNode, MPage, MPageFragment } from '@tmagic/core';
 import type { FormConfig, FormState } from '@tmagic/form';
-import StageCore, {
-  CONTAINER_HIGHLIGHT_CLASS_NAME,
-  ContainerHighlightType,
-  type CustomizeMoveableOptions,
-  type GuidesOptions,
-  RenderType,
-  type UpdateDragEl,
-} from '@tmagic/stage';
-import { getIdFromEl } from '@tmagic/utils';
 
 import type {
   CanDropInFunction,
@@ -55,23 +46,6 @@ export interface EditorProps {
   layerContentMenu?: (MenuButton | MenuComponent)[];
   /** 画布右键菜单 */
   stageContentMenu?: (MenuButton | MenuComponent)[];
-  /** 中间工作区域中画布通过iframe渲染时的页面url */
-  runtimeUrl?: string;
-  /** 是用iframe渲染还是直接渲染 */
-  renderType?: RenderType;
-  /**
-   * editor 端画布渲染器选择(M2 leafer-components 引入):
-   * - 'iframe':默认,沿用 iframe + Vue/React runtime,保持向后兼容
-   * - 'leafer':用 leafer-ui canvas 直渲染,配合 @leafer-components 注册的内置 shape
-   *
-   * iframe 路径下:runtimeUrl 必须有值。
-   * leafer 路径下:runtimeUrl 忽略;业务方需确保 useStage 的 editor 在 mount 前已
-   * 通过 `LeaferStage.shapeRegistry` 注册好 shape(框架已在 useStage 里自动
-   * 注册内置 10 个;业务自定义的 shape 由业务方自行 import + registerAll)。
-   */
-  renderer?: 'iframe' | 'leafer';
-  /** 选中时是否自动滚动到可视区域 */
-  autoScrollIntoView?: boolean;
   /** 组件的属性配置表单的dsl */
   propsConfigs?: Record<string, FormConfig>;
   /** 添加组件时的默认值 */
@@ -83,29 +57,12 @@ export interface EditorProps {
   /** 数据源的属性配置表单的dsl */
   datasourceConfigs?: Record<string, FormConfig>;
   datasourceEventMethodList?: Record<string, { events: EventOption[]; methods: EventOption[] }>;
-  /** 画布中组件选中框的移动范围 */
-  moveableOptions?: CustomizeMoveableOptions;
   /** 编辑器初始化时默认选中的组件ID */
   defaultSelected?: Id;
-  /** 拖入画布中容器时，识别到容器后给容器根dom加上的class */
-  containerHighlightClassName?: string;
-  /** 拖入画布中容器时，悬停识别容器的时间 */
-  containerHighlightDuration?: number;
-  /** 拖入画布中容器时，识别容器的操作类型 */
-  containerHighlightType?: ContainerHighlightType;
-  /**
-   * 是否仅在新增组件（从组件列表拖入新组件）时才启用识别容器，
-   * 开启后在画布中拖动已有组件不会识别容器，默认 false
-   */
-  containerHighlightAddOnly?: boolean;
   /** 画布大小 */
   stageRect?: StageRect;
   /** monaco editor 的配置 */
   codeOptions?: { [key: string]: any };
-  /** 禁用鼠标左键按下时就开始拖拽，需要先选中再可以拖拽 */
-  disabledDragStart?: boolean;
-  /** 标尺配置 */
-  guidesOptions?: Partial<GuidesOptions>;
   /** 禁止多选 */
   disabledMultiSelect?: boolean;
   /**
@@ -117,8 +74,6 @@ export interface EditorProps {
   disabledPageFragment?: boolean;
   /** 禁用「非点击画布选中组件时（如从图层树、面包屑等外部选中），对选中区域做高亮闪烁提示」，默认 false（即默认开启闪烁） */
   disabledFlashTip?: boolean;
-  /** 禁用双击在浮层中单独编辑选中组件 */
-  disabledStageOverlay?: boolean;
   /**
    * 是否启用「属性配置表单校验」联动能力：开启后属性/样式表单校验失败时仍更新节点，
    * 并把错误信息集中记录到 editorService，用于组件树标红提示与保存拦截；默认 false（关闭）。
@@ -134,14 +89,6 @@ export interface EditorProps {
   treeIndent?: number;
   /** 已选组件、代码编辑、数据源子节点缩进增量配置 */
   treeNextLevelIndentIncrement?: number;
-  /** 中间工作区域中画布渲染的内容 */
-  render?: (stage: StageCore) => HTMLDivElement | void | Promise<HTMLDivElement | void>;
-  /** 选中时会在画布上复制出一个大小相同的dom，实际拖拽的是这个dom，此方法用于干预这个dom的生成方式 */
-  updateDragEl?: UpdateDragEl;
-  /** 用于设置画布上的dom是否可以被选中 */
-  canSelect?: (el: HTMLElement) => boolean | Promise<boolean>;
-  /** 用于设置画布上的dom是否可以被拖入其中 */
-  isContainer?: (el: HTMLElement) => boolean | Promise<boolean>;
   /** 用于自定义组件树与画布的右键菜单 */
   customContentMenu?: CustomContentMenuFunction;
   /** 用于自定义判断组件树节点是否可展开（即是否要展示为拥有子节点的形态） */
@@ -170,17 +117,10 @@ export interface EditorProps {
 }
 
 export const defaultEditorProps = {
-  renderType: RenderType.IFRAME,
-  renderer: 'iframe' as const,
   disabledMultiSelect: false,
   alwaysMultiSelect: false,
   disabledPageFragment: false,
   disabledFlashTip: false,
-  disabledStageOverlay: false,
-  containerHighlightClassName: CONTAINER_HIGHLIGHT_CLASS_NAME,
-  containerHighlightDuration: 800,
-  containerHighlightType: ContainerHighlightType.DEFAULT,
-  containerHighlightAddOnly: false,
   disabledShowSrc: false,
   disabledDataSource: false,
   disabledCodeBlock: false,
@@ -195,8 +135,6 @@ export const defaultEditorProps = {
   eventMethodList: () => ({}),
   datasourceValues: () => ({}),
   datasourceConfigs: () => ({}),
-  canSelect: (el: HTMLElement) => Boolean(getIdFromEl()(el) && !el.dataset.tmagicPageFragmentContainerId),
-  isContainer: (el: HTMLElement) => el.classList.contains('magic-ui-container'),
   codeOptions: () => ({}),
   customContentMenu: (menus: (MenuButton | MenuComponent)[]) => menus,
 };

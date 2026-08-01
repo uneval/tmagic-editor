@@ -20,7 +20,7 @@ import { createRoot } from 'react-dom/client';
 
 import type { MApp } from '@tmagic/core';
 import Core, { DataSourceManager, DeepObservedData, getUrlParam } from '@tmagic/core';
-import { AppContent } from '@tmagic/react-runtime-help';
+import { AppContent, useEditorDsl } from '@tmagic/react-runtime-help';
 
 import components from '../.tmagic/comp-entry';
 import dataSources from '../.tmagic/datasource-entry';
@@ -75,10 +75,15 @@ Object.values(plugins).forEach((plugin: any) => {
 });
 
 const root = createRoot(document.getElementById('root')!);
-root.render(
-  <React.StrictMode>
-    <AppContent.Provider value={app}>
-      <App />
-    </AppContent.Provider>
-  </React.StrictMode>,
-);
+const renderDom = () => {
+  root.render(
+    <React.StrictMode>
+      <AppContent.Provider value={app}>
+        <App />
+      </AppContent.Provider>
+    </React.StrictMode>,
+  );
+};
+
+useEditorDsl(app, renderDom);
+renderDom();

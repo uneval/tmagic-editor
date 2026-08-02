@@ -85,7 +85,7 @@ beforeEach(() => {
     },
     { title: '容器', items: [{ text: '行', type: 'row' }] },
   ]);
-  editorService.get.mockReturnValue({ delayedMarkContainer: vi.fn() });
+  editorService.get.mockReturnValue({ updateDropFeedback: vi.fn(), clearDropFeedback: vi.fn() });
 });
 
 describe('ComponentListPanel', () => {
@@ -120,21 +120,26 @@ describe('ComponentListPanel', () => {
     await wrapper.find('.component-item').trigger('dragend');
   });
 
-  test('drag 事件 不同坐标时不会触发 delayedMarkContainer', async () => {
-    const stage = { delayedMarkContainer: vi.fn() };
+  test('drag 事件 不同坐标时不会触发 updateDropFeedback', async () => {
+    const stage = { updateDropFeedback: vi.fn(), clearDropFeedback: vi.fn() };
     editorService.get.mockReturnValue(stage);
     const wrapper = mount(ComponentListPanel);
     await wrapper.find('.component-item').trigger('drag', { clientX: 1, clientY: 1 });
-    expect(stage.delayedMarkContainer).not.toHaveBeenCalled();
+    expect(stage.updateDropFeedback).not.toHaveBeenCalled();
   });
 
-  test('drag 事件 相同坐标时触发 delayedMarkContainer', async () => {
-    const stage = { delayedMarkContainer: vi.fn(() => 1) };
+  test('drag 事件 相同坐标时触发 updateDropFeedback', async () => {
+    vi.useFakeTimers();
+    const stage = { updateDropFeedback: vi.fn(), clearDropFeedback: vi.fn() };
     editorService.get.mockReturnValue(stage);
     const wrapper = mount(ComponentListPanel);
     const item = wrapper.find('.component-item');
     await item.trigger('drag', { clientX: 0, clientY: 0 });
     await item.trigger('drag', { clientX: 0, clientY: 0 });
-    expect(stage.delayedMarkContainer).toHaveBeenCalledWith(expect.anything(), [], true);
+    vi.advanceTimersByTime(800);
+    expect(stage.updateDropFeedback).toHaveBeenCalledWith(expect.anything(), []);
+    await item.trigger('dragend');
+    expect(stage.clearDropFeedback).toHaveBeenCalled();
+    vi.useRealTimers();
   });
 });

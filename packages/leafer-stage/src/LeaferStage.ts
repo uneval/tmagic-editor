@@ -27,8 +27,17 @@ import DropFeedbackRenderer from './drag/DropFeedbackRenderer';
 import DropTargetResolver from './drag/DropTargetResolver';
 import type { DragCommit } from './drag/types';
 import { DEFAULT_ZOOM } from './const';
+import HighlightRenderer from './HighlightRenderer';
 import LeaferShapeRegistry from './LeaferShapeRegistry';
-import type { LeaferDropTarget, Point, RemoveData, UpdateData, WorldPoint } from './types';
+import type {
+  LeaferCanDropIn,
+  LeaferDropTarget,
+  LeaferStageOptions,
+  Point,
+  RemoveData,
+  UpdateData,
+  WorldPoint,
+} from './types';
 
 const DEFAULT_PAGE_WIDTH = 375;
 const DEFAULT_PAGE_HEIGHT = 667;
@@ -192,6 +201,7 @@ export default class LeaferStage extends EventEmitter {
   private rootGroup: import('leafer-ui').Group | null = null;
 
   private zoom = DEFAULT_ZOOM;
+  private readonly canDropIn: LeaferCanDropIn | undefined;
 
   /** 业务方提供的 shape registry(public,允许 editor 在 mount 后追加注册) */
   public shapeRegistry: LeaferShapeRegistry;
@@ -209,10 +219,18 @@ export default class LeaferStage extends EventEmitter {
     pageBounds: () => this.pageLayoutBounds,
     containerIds: () => this.containerNodeIds,
     nodeMap: () => this.nodeMap,
+    canDropIn: (sourceIds, targetId) => this.canDropIn?.(sourceIds, targetId),
   });
   private readonly dropFeedbackRenderer = new DropFeedbackRenderer({
     rootGroup: () => this.rootGroup,
     rectConstructor: () => this.rectConstructor,
+  });
+  private readonly highlightRenderer = new HighlightRenderer({
+    rootGroup: () => this.rootGroup,
+    rectConstructor: () => this.rectConstructor,
+    nodeMap: () => this.nodeMap,
+    isSelected: (node) => this.isSelected(node),
+    isMultiSelectDragging: () => this.dragSession.isMultiSelectDragging(),
   });
   private readonly dragSession = new DragSessionController({
     resolveTarget: (point, ids) => this.dropTargetResolver.resolve(point, ids),
@@ -231,7 +249,7 @@ export default class LeaferStage extends EventEmitter {
   private readonly finishDrag = () => this.dragSession.finish();
   private readonly handleDoubleClick = (event: MouseEvent) => this.emit('dblclick', event);
 
-  constructor(config: { zoom?: number; shapeRegistry?: LeaferShapeRegistry }) {
+  constructor(config: LeaferStageOptions) {
     super();
     this.zoom = config.zoom ?? DEFAULT_ZOOM;
     // 永远要有一个真正的 LeaferShapeRegistry 实例,业务方 useStage 之后会调
@@ -239,6 +257,7 @@ export default class LeaferStage extends EventEmitter {
     // 之前 fallback `{} as LeaferShapeRegistry` 是 TS-only 骗 typecheck,运行时是空对象,
     // 调到 registerAll 直接报 "is not a function"。
     this.shapeRegistry = config.shapeRegistry ?? new LeaferShapeRegistry();
+    this.canDropIn = config.canDropIn;
   }
 
   // -------------------------------------------------------------------------
@@ -321,6 +340,7 @@ export default class LeaferStage extends EventEmitter {
 
   public destroy(): void {
     this.dragSession.dispose();
+    this.highlightRenderer.clear();
     this.dropFeedbackRenderer.clear();
     this.snap?.enable(false);
     this.snap = null;
@@ -367,6 +387,8 @@ export default class LeaferStage extends EventEmitter {
     // 通过 editor.select 事件回流到 editorService,形成失效 ID。
     if (this.editor) this.editor.target = null;
     this.dragSession.cancel();
+    this.highlightRenderer.clear();
+    this.dropFeedbackRenderer.clear();
     this.rootGroup.removeAll();
     this.nodeMap.clear();
     this.pageFrames.clear();
@@ -454,7 +476,10 @@ export default class LeaferStage extends EventEmitter {
 
   /** 把浏览器事件坐标转换为 Leafer 世界坐标。 */
   public getWorldPoint(point: Point): WorldPoint | null {
-    const world = this.app?.getWorldPointByClient?.({ x: point.clientX, y: point.clientY });
+    const clientPoint = { clientX: point.clientX, clientY: point.clientY };
+    // Leafer 的坐标转换属于 tree(Leafer) 实例,App 只是生命周期容器。
+    // 保留 app fallback 兼容旧版本和 node 测试替身,但真实路径优先使用 tree。
+    const world = this.leafer?.getWorldPointByClient?.(clientPoint) ?? this.app?.getWorldPointByClient?.(clientPoint);
     if (!world || !Number.isFinite(world.x) || !Number.isFinite(world.y)) return null;
     return { x: world.x, y: world.y };
   }
@@ -482,6 +507,17 @@ export default class LeaferStage extends EventEmitter {
     const target = this.dropTargetResolver.resolve(world, sourceIds);
     if (!target) return null;
     return { id: target.id, kind: target.kind, bounds: target.bounds };
+  }
+
+  public updateDropFeedback(point: Point, sourceIds: Id[]): LeaferDropTarget | null {
+    const world = this.getWorldPoint(point);
+    const target = world ? this.dropTargetResolver.resolve(world, sourceIds) : null;
+    this.dropFeedbackRenderer.render(target);
+    return target ? { id: target.id, kind: target.kind, bounds: target.bounds } : null;
+  }
+
+  public clearDropFeedback(): void {
+    this.dropFeedbackRenderer.clear();
   }
 
   /** 返回事件点下按 Leafer 命中路径归一化后的 DSL 节点。 */
@@ -565,6 +601,7 @@ export default class LeaferStage extends EventEmitter {
   }
 
   public async select(ids: Id | Id[]): Promise<void> {
+    this.highlightRenderer.clear();
     const list = Array.isArray(ids) ? ids : [ids];
     const targets = list.map((id) => this.nodeMap.get(id)).filter(Boolean);
     if (this.editor) {
@@ -578,8 +615,12 @@ export default class LeaferStage extends EventEmitter {
     await this.select(ids);
   }
 
-  public highlight(_id: Id): void {}
-  public clearHighlight(): void {}
+  public highlight(id: Id): void {
+    this.highlightRenderer.render(id);
+  }
+  public clearHighlight(): void {
+    this.highlightRenderer.clear();
+  }
   public clearGuides(): void {}
   public delayedMarkContainer(_event: MouseEvent, _exclude?: Element[], _isAdd?: boolean): undefined {
     return undefined;
@@ -613,6 +654,12 @@ export default class LeaferStage extends EventEmitter {
 
   public getElementsFromPoint(_point: Point): HTMLElement[] {
     return [];
+  }
+
+  private isSelected(node: any): boolean {
+    const target = this.editor?.target;
+    if (Array.isArray(target)) return target.includes(node) || target.some((item) => `${item?.id}` === `${node?.id}`);
+    return target === node || (target?.id !== undefined && `${target.id}` === `${node?.id}`);
   }
 
   private commitDrag({ sessionId, ids, target, snapshots }: DragCommit): void {

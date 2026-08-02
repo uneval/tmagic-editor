@@ -9,6 +9,8 @@ export type {
   LeaferEditConfig,
   LeaferEditData,
   LeaferStageEvents,
+  LeaferStageOptions,
+  LeaferCanDropIn,
   Point,
   RemoveData,
   UpdateData,

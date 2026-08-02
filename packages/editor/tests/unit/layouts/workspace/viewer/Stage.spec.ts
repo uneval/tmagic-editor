@@ -136,6 +136,7 @@ describe('Stage', () => {
 
   test('canDropIn 返回 false 时取消拖入', async () => {
     const canDropIn = vi.fn(() => false);
+    stageInstance.resolveDropTarget.mockReturnValueOnce(null);
     const wrapper = mountIt({ stageOptions: { canDropIn } });
     await nextTick();
     const event: any = new Event('drop');
@@ -143,7 +144,7 @@ describe('Stage', () => {
     event.preventDefault = vi.fn();
     wrapper.find('.m-editor-stage-container').element.dispatchEvent(event);
     await new Promise((resolve) => setTimeout(resolve, 10));
-    expect(canDropIn).toHaveBeenCalledWith([], 'p1');
+    expect(canDropIn).not.toHaveBeenCalled();
     expect(editorService.add).not.toHaveBeenCalled();
   });
 

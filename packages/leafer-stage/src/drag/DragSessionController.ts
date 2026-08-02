@@ -76,6 +76,10 @@ export default class DragSessionController {
     this.cancel();
   }
 
+  public isMultiSelectDragging(): boolean {
+    return this.phase === 'dragging' && this.sessionSnapshots.length > 1;
+  }
+
   private refreshTarget(): void {
     if (!this.point || !this.ids.size || this.phase !== 'dragging') {
       this.setTarget(null);

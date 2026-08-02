@@ -1,5 +1,7 @@
 import type { Id, MApp, MContainer, MNode } from '@tmagic/core';
 
+import type LeaferShapeRegistry from './LeaferShapeRegistry';
+
 export interface Point {
   clientX: number;
   clientY: number;
@@ -23,6 +25,14 @@ export interface LeaferDropTarget {
   id: Id;
   kind: DropTargetKind;
   bounds: DropBounds;
+}
+
+export type LeaferCanDropIn = (sourceIds: Id[], targetId: Id) => Id | boolean | void;
+
+export interface LeaferStageOptions {
+  zoom?: number;
+  shapeRegistry?: LeaferShapeRegistry;
+  canDropIn?: LeaferCanDropIn;
 }
 
 export interface UpdateData {

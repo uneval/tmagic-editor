@@ -197,31 +197,14 @@ const dropHandler = async (e: DragEvent) => {
 
   let parent: MContainer | undefined | null = page.value;
   const target = stage?.resolveDropTarget(e, []);
+  // LeaferStage 已经在解析阶段完成 canDropIn 校验。配置了校验而没有最终
+  // 目标时，不能回退到当前页面，否则会绕过 false 的拒绝结果。
+  if (!target && props.stageOptions.canDropIn) return;
   if (target) {
     parent = editorService.getNodeById(target.id, false) as MContainer;
   }
 
   if (parent && stageContainerEl.value && stage) {
-    // 通过用户配置的钩子再次确认当前拖入的新组件是否允许放入命中的高亮容器，
-    // 防止 delayedMarkContainer 的延迟/异步未生效或残留高亮导致命中错误容器
-    //   - 返回 false：取消此次拖入
-    //   - 返回 Id  ：将父节点重定向到该 id 对应的节点（layout 坐标也基于其 DOM 重新计算）
-    //   - 其他    ：使用原命中节点
-    // 从组件列表拖入新组件时 sourceIds 为空数组（尚无 id）
-    if (props.stageOptions.canDropIn) {
-      const result = props.stageOptions.canDropIn([], parent.id);
-      if (result === false) {
-        return;
-      }
-      if (typeof result === 'string' || typeof result === 'number') {
-        const redirectedNode = editorService.getNodeById(result, false) as MContainer | undefined;
-        if (!redirectedNode) {
-          return;
-        }
-        parent = redirectedNode;
-      }
-    }
-
     const layout = await editorService.getLayout(parent);
     const { style = {} } = config.data;
 

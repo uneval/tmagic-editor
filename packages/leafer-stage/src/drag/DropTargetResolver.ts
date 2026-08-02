@@ -8,17 +8,20 @@ interface DropTargetResolverOptions {
   pageBounds: () => Map<Id, DropBounds>;
   containerIds: () => Set<Id>;
   nodeMap?: () => Map<Id, any>;
+  canDropIn?: (sourceIds: Id[], targetId: Id) => Id | boolean | void;
 }
 
 /** 只负责把画布坐标解析为可接收目标,不修改节点和提示层。 */
 export default class DropTargetResolver {
   private readonly options: DropTargetResolverOptions;
+  private readonly rejectedTargetIds = new Set<string>();
 
   public constructor(options: DropTargetResolverOptions) {
     this.options = options;
   }
 
   public resolve(point: DragPoint, ids: Id[]): DropTarget | null {
+    this.rejectedTargetIds.clear();
     const rootGroup = this.options.rootGroup();
     if (!rootGroup) return null;
 
@@ -38,7 +41,7 @@ export default class DropTargetResolver {
       if (pages.has(id)) {
         if (this.isSourceAncestor(element, ids)) continue;
         const bounds = this.options.pageBounds().get(id);
-        if (bounds) pageTarget = { id, kind: 'page', node: element, bounds };
+        if (bounds) pageTarget = this.applyCanDrop({ id, kind: 'page', node: element, bounds }, ids);
         continue;
       }
 
@@ -58,13 +61,19 @@ export default class DropTargetResolver {
       if (containsSelected) continue;
 
       const bounds = element.getBounds?.('box', rootGroup);
-      if (bounds) return { id, kind: 'container', node: element, bounds };
+      if (bounds) {
+        const target = this.applyCanDrop({ id, kind: 'container', node: element, bounds }, ids);
+        if (target) return target;
+      }
     }
 
     if (pageTarget) return pageTarget;
 
     const sameParentTarget = this.resolveSameParent(point, ids, pages, rootGroup);
-    if (sameParentTarget) return sameParentTarget;
+    if (sameParentTarget) {
+      const target = this.applyCanDrop(sameParentTarget, ids);
+      if (target) return target;
+    }
 
     // 空白页或透明背景可能不会出现在 pick path 中,用页面的固定排版边界
     // 做几何兜底,避免不同页面因内容结构不同而出现单向拖入失败。
@@ -72,7 +81,8 @@ export default class DropTargetResolver {
       if (!this.containsPoint(bounds, point)) continue;
       const page = pages.get(id);
       if (!page || this.isSourceAncestor(page, ids)) continue;
-      return { id, kind: 'page', node: page, bounds };
+      const target = this.applyCanDrop({ id, kind: 'page', node: page, bounds }, ids);
+      if (target) return target;
     }
 
     return null;
@@ -113,5 +123,41 @@ export default class DropTargetResolver {
       }
       return false;
     });
+  }
+
+  private applyCanDrop(target: DropTarget, ids: Id[]): DropTarget | null {
+    if (this.rejectedTargetIds.has(`${target.id}`)) return null;
+    const result = this.options.canDropIn?.(ids, target.id);
+    if (result === false) {
+      this.rejectedTargetIds.add(`${target.id}`);
+      return null;
+    }
+    if (result === undefined || result === true || `${result}` === `${target.id}`) return target;
+
+    const redirectedId = result as Id;
+    const nodeMap = this.options.nodeMap?.();
+    const pages = this.options.pageFrames();
+    if (!pages.has(redirectedId) && !this.options.containerIds().has(redirectedId)) {
+      this.rejectedTargetIds.add(`${target.id}`);
+      return null;
+    }
+    const node = nodeMap?.get(redirectedId) ?? pages.get(redirectedId);
+    if (!node) {
+      this.rejectedTargetIds.add(`${target.id}`);
+      return null;
+    }
+    if (this.isSourceAncestor(node, ids)) {
+      this.rejectedTargetIds.add(`${target.id}`);
+      return null;
+    }
+    const bounds = pages.has(redirectedId)
+      ? this.options.pageBounds().get(redirectedId)
+      : node.getBounds?.('box', this.options.rootGroup());
+    if (!bounds) {
+      this.rejectedTargetIds.add(`${target.id}`);
+      return null;
+    }
+    const kind = pages.has(redirectedId) ? 'page' : 'container';
+    return { id: redirectedId, kind, node, bounds };
   }
 }

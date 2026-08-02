@@ -82,6 +82,7 @@ watch(
 );
 
 let timeout: ReturnType<typeof setTimeout> | undefined;
+const DROP_FEEDBACK_DELAY = 800;
 let clientX: number;
 let clientY: number;
 
@@ -116,6 +117,7 @@ const dragendHandler = () => {
     globalThis.clearTimeout(timeout);
     timeout = undefined;
   }
+  stage.value?.clearDropFeedback();
   clientX = 0;
   clientY = 0;
 };
@@ -128,11 +130,15 @@ const dragHandler = (e: DragEvent) => {
       globalThis.clearTimeout(timeout);
       timeout = undefined;
     }
+    stage.value?.clearDropFeedback();
     return;
   }
 
   if (timeout || !stage.value) return;
 
-  timeout = stage.value.delayedMarkContainer(e, [], true);
+  timeout = globalThis.setTimeout(() => {
+    timeout = undefined;
+    stage.value?.updateDropFeedback(e, []);
+  }, DROP_FEEDBACK_DELAY);
 };
 </script>

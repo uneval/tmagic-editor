@@ -31,6 +31,8 @@ class FakeNode {
   public id?: string;
   public children: FakeNode[] = [];
   public parent: FakeNode | null = null;
+  public removed = false;
+  public bounds = { x: 10, y: 20, width: 100, height: 40 };
 
   public add(node: FakeNode) {
     node.parent = this;
@@ -39,6 +41,14 @@ class FakeNode {
 
   public removeAll() {
     this.children = [];
+  }
+
+  public getBounds() {
+    return this.bounds;
+  }
+
+  public remove() {
+    this.removed = true;
   }
 }
 
@@ -121,6 +131,132 @@ describe('LeaferStage > constructor', () => {
   it('kind 标记为 leafer', () => {
     const r = new LeaferStage({});
     expect(r.kind).toBe('leafer');
+  });
+
+  it('高亮节点并复用反馈节点,选中节点不显示 hover', () => {
+    class HighlightRect extends FakeNode {
+      public set = vi.fn();
+      public moveToFront = vi.fn();
+    }
+    const stage = new LeaferStage({});
+    const root = new FakeNode();
+    const node = new FakeNode();
+    node.id = 'text-1';
+    (stage as any).rootGroup = root;
+    (stage as any).rectConstructor = HighlightRect;
+    (stage as any).nodeMap.set(node.id, node);
+
+    stage.highlight('text-1');
+    expect(root.children).toHaveLength(1);
+    const feedback = root.children[0];
+    expect(feedback).toBeInstanceOf(HighlightRect);
+    expect((feedback as any).set).toHaveBeenCalledWith(node.bounds);
+
+    (stage as any).editor = { target: node };
+    stage.highlight('text-1');
+    expect(root.children).toHaveLength(1);
+    expect((feedback as any).removed).toBe(true);
+  });
+
+  it('clearHighlight 会移除反馈节点', () => {
+    class HighlightRect extends FakeNode {}
+    const stage = new LeaferStage({});
+    const root = new FakeNode();
+    const node = new FakeNode();
+    node.id = 'text-1';
+    (stage as any).rootGroup = root;
+    (stage as any).rectConstructor = HighlightRect;
+    (stage as any).nodeMap.set(node.id, node);
+
+    stage.highlight('text-1');
+    const feedback = root.children[0];
+    stage.clearHighlight();
+
+    expect((feedback as any).removed).toBe(true);
+  });
+
+  it('updateDropFeedback 统一解析 canDropIn 重定向目标并可清理', () => {
+    class FeedbackRect extends FakeNode {
+      public set = vi.fn();
+      public moveToFront = vi.fn();
+    }
+    const canDropIn = vi.fn(() => 'redirected');
+    const stage = new LeaferStage({ canDropIn });
+    const root = new FakeNode();
+    const source = new FakeNode();
+    source.id = 'source';
+    const target = new FakeNode();
+    target.id = 'target';
+    const redirected = new FakeNode();
+    redirected.id = 'redirected';
+    (stage as any).rootGroup = root;
+    (stage as any).rectConstructor = FeedbackRect;
+    (stage as any).app = { getWorldPointByClient: () => ({ x: 10, y: 20 }) };
+    root.pick = () => ({ path: { list: [target] } });
+    root.add(target);
+    root.add(redirected);
+    (stage as any).nodeMap.set(source.id, source);
+    (stage as any).nodeMap.set(target.id, target);
+    (stage as any).nodeMap.set(redirected.id, redirected);
+    (stage as any).containerNodeIds.add(target.id);
+    (stage as any).containerNodeIds.add(redirected.id);
+
+    const result = stage.updateDropFeedback({ clientX: 1, clientY: 2 }, ['source']);
+    expect(result?.id).toBe('redirected');
+    expect(canDropIn).toHaveBeenCalledWith(['source'], 'target');
+    expect(root.children).toHaveLength(3);
+
+    const feedback = root.children[2];
+    stage.clearDropFeedback();
+    expect((feedback as any).removed).toBe(true);
+    expect((stage as any).nodeMap.has('redirected')).toBe(true);
+  });
+
+  it('canDropIn 返回 false 时不产生反馈', () => {
+    const stage = new LeaferStage({ canDropIn: () => false });
+    const root = new FakeNode();
+    const target = new FakeNode();
+    target.id = 'target';
+    (stage as any).rootGroup = root;
+    (stage as any).app = { getWorldPointByClient: () => ({ x: 10, y: 20 }) };
+    root.pick = () => ({ path: { list: [target] } });
+    (stage as any).containerNodeIds.add(target.id);
+    (stage as any).nodeMap.set(target.id, target);
+
+    expect(stage.updateDropFeedback({ clientX: 1, clientY: 2 }, [])).toBeNull();
+    expect(root.children).toHaveLength(0);
+  });
+
+  it('setRoot 和 destroy 会清理高亮、drop feedback 以及临时节点映射', async () => {
+    class FeedbackRect extends FakeNode {
+      public set = vi.fn();
+      public moveToFront = vi.fn();
+    }
+    const stage = new LeaferStage({});
+    const root = new FakeNode();
+    const node = new FakeNode();
+    node.id = 'container-1';
+    (stage as any).rootGroup = root;
+    (stage as any).rectConstructor = FeedbackRect;
+    (stage as any).leafer = { destroy: vi.fn() };
+    (stage as any).app = { destroy: vi.fn(), getWorldPointByClient: () => ({ x: 10, y: 20 }) };
+    root.pick = () => ({ path: { list: [node] } });
+    (stage as any).nodeMap.set(node.id, node);
+    (stage as any).containerNodeIds.add(node.id);
+
+    stage.highlight(node.id);
+    stage.updateDropFeedback({ clientX: 1, clientY: 2 }, []);
+    expect((stage as any).highlightRenderer.hint).toBeTruthy();
+    expect((stage as any).dropFeedbackRenderer.hint).toBeTruthy();
+
+    await stage.setRoot({ id: 'app', type: 'app', items: [] } as any);
+    expect((stage as any).highlightRenderer.hint).toBeNull();
+    expect((stage as any).dropFeedbackRenderer.hint).toBeNull();
+    expect((stage as any).nodeMap.size).toBe(0);
+
+    stage.destroy();
+    expect((stage as any).rootGroup).toBeNull();
+    expect((stage as any).app).toBeNull();
   });
 
   it('setRoot 递归构建容器下的嵌套节点', async () => {
@@ -281,7 +417,19 @@ describe('LeaferStage > constructor', () => {
       kind: 'page',
       bounds,
     });
-    expect((r as any).app.getWorldPointByClient).toHaveBeenCalledWith({ x: 400, y: 500 });
+    expect((r as any).app.getWorldPointByClient).toHaveBeenCalledWith({ clientX: 400, clientY: 500 });
+  });
+
+  it('优先从 Leafer tree 而不是 App 解析客户端坐标', () => {
+    const r = new LeaferStage({});
+    const treeResolver = vi.fn(() => ({ x: 40, y: 60 }));
+    const appResolver = vi.fn(() => ({ x: 1, y: 2 }));
+    (r as any).leafer = { getWorldPointByClient: treeResolver };
+    (r as any).app = { getWorldPointByClient: appResolver };
+
+    expect(r.getWorldPoint({ clientX: 400, clientY: 500 })).toEqual({ x: 40, y: 60 });
+    expect(treeResolver).toHaveBeenCalledWith({ clientX: 400, clientY: 500 });
+    expect(appResolver).not.toHaveBeenCalled();
   });
 
   it('将客户端坐标转换为目标容器的局部坐标', () => {

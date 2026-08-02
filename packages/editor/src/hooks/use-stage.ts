@@ -11,7 +11,7 @@ import { buildChangeRecords } from '@editor/utils/editor';
 const zoom = computed(() => uiService.get('zoom') || 1);
 
 export const useStage = (stageOptions: StageOptions) => {
-  const stage = new LeaferStage({ zoom: stageOptions.zoom ?? zoom.value });
+  const stage = new LeaferStage({ zoom: stageOptions.zoom ?? zoom.value, canDropIn: stageOptions.canDropIn });
 
   // Leafer shape 只在独立 LeaferStage 路径按需加载。注册完成后重新提交当前
   // root，覆盖 mount / setRoot / dynamic import 三者之间可能出现的竞态。
